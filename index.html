@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>OVERHUE</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --paper: #f3ead8;
+      --ink: #2a241c;
+      --muted: #7a7064;
+      --line: #d7ccb8;
+      --shadow: 0 18px 50px rgba(60, 42, 20, .12);
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: "IBM Plex Sans KR", sans-serif;
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fff6e6, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #f7d9c8, transparent 45%),
+        var(--paper);
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    button { font-family: inherit; }
+    .app {
+      max-width: 640px;
+      margin: 0 auto;
+      min-height: 100%;
+      padding: 18px 16px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    header { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+    h1 { font-family: Fraunces, serif; font-size: 28px; margin: 0; letter-spacing: -.03em; }
+    .sub { color: var(--muted); font-size: 13px; margin-top: 4px; line-height: 1.4; }
+    .chip {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-weight: 600;
+      font-size: 13px;
+      box-shadow: var(--shadow);
+      white-space: nowrap;
+    }
+    .card {
+      background: #fffdf8;
+      border: 1px solid #eadfca;
+      border-radius: 22px;
+      padding: 14px;
+      box-shadow: var(--shadow);
+    }
+    .hint { font-size: 13px; color: var(--muted); line-height: 1.45; margin: 0 0 12px; min-height: 2.6em; }
+    .play {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .board {
+      position: relative;
+      touch-action: none;
+    }
+    .layers, .preview, .grid { position: absolute; inset: 0; pointer-events: none; }
+    .layers { z-index: 1; }
+    .preview { z-index: 2; }
+    .grid { display: grid; z-index: 3; }
+    .cell {
+      position: relative;
+      border-radius: 8px;
+      background: rgba(42, 36, 28, .03);
+      box-shadow: inset 0 0 0 1px rgba(42, 36, 28, .07);
+    }
+    .num {
+      position: absolute; inset: 0;
+      display: grid; place-items: center;
+      font-weight: 700; font-size: 18px; z-index: 2;
+      color: var(--ink);
+    }
+    .cell.void { background: rgba(42, 36, 28, .07); }
+    .rect {
+      position: absolute;
+      border-radius: 10px;
+      pointer-events: none;
+    }
+    .rect.pop { animation: pop .22s ease; }
+    @keyframes pop {
+      0% { transform: scale(.92); }
+      70% { transform: scale(1.03); }
+      100% { transform: scale(1); }
+    }
+    .preview .rect { outline: 2px dashed rgba(42,36,28,.32); outline-offset: -2px; }
+    .preview .rect.bad {
+      outline-color: #b42318;
+      background: rgba(180, 35, 24, .18) !important;
+      box-shadow: inset 0 0 0 2px #b42318 !important;
+    }
+    .preview .area {
+      position: absolute; inset: 0;
+      display: grid; place-items: center;
+      font-weight: 700; font-size: 18px; opacity: .85;
+    }
+    .mixes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      align-items: flex-start;
+      margin-top: 12px;
+    }
+    .mixes-label {
+      flex: 0 0 100%;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      margin: 0;
+      text-align: center;
+      letter-spacing: -.02em;
+    }
+    .mix {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 8px;
+    }
+    .mix-grid {
+      display: grid;
+      gap: 2px;
+      justify-content: center;
+    }
+    .mix-grid i {
+      display: block;
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      background: rgba(42, 36, 28, .06);
+    }
+    .mix-grid i.on { box-shadow: inset 0 0 0 1px rgba(255,255,255,.35); }
+    .palette {
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      align-items: center;
+      gap: 10px;
+    }
+    .swatch {
+      width: 58px; height: 58px; border: 0; border-radius: 18px; cursor: pointer;
+      box-shadow: 0 8px 18px rgba(42,36,28,.12);
+      transition: transform .12s ease;
+    }
+    .swatch.on {
+      transform: translateY(-3px) scale(1.05);
+      box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--ink);
+    }
+    .swatch.erase {
+      width: auto; padding: 0 12px;
+      background: #fff; font-weight: 700; font-size: 12px; color: var(--ink);
+      box-shadow: inset 0 0 0 1px var(--line);
+    }
+    .tools { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+    .tool {
+      background: #fff; border: 1px solid var(--line); border-radius: 14px;
+      padding: 10px 14px; font-weight: 600; font-size: 13px; cursor: pointer;
+    }
+    .tool:active, .swatch:active { transform: scale(.96); }
+    .status { text-align: center; font-size: 13px; color: var(--muted); min-height: 1.3em; }
+    .status.ok { color: #1f7a4d; font-weight: 700; }
+    .status.bad { color: #b42318; }
+    .sheet { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+    .mini {
+      aspect-ratio: 1; border: 0; border-radius: 12px; background: #fff;
+      box-shadow: inset 0 0 0 1px var(--line); font-weight: 700; font-size: 12px; cursor: pointer;
+    }
+    .mini.cleared { background: #eaf6ee; color: #1f7a4d; }
+    .mini.cur { box-shadow: 0 0 0 2px var(--ink); }
+    .mini:disabled { opacity: .35; cursor: default; }
+    .win {
+      display: none; position: fixed; inset: 0;
+      background: rgba(42,36,28,.28); place-items: center; z-index: 20; padding: 20px;
+    }
+    .win.show { display: grid; }
+    .win-card {
+      background: #fffdf8; border-radius: 24px; padding: 22px 20px;
+      width: min(360px, 100%); text-align: center; box-shadow: var(--shadow);
+      animation: pop .25s ease;
+    }
+    .win-card h2 { font-family: Fraunces, serif; margin: 0 0 8px; }
+    .win-card p { color: var(--muted); margin: 0 0 16px; }
+    .help { font-size: 12px; color: var(--muted); line-height: 1.55; margin: 0; }
+    kbd {
+      font-family: inherit; background: #fff; border: 1px solid var(--line);
+      border-radius: 6px; padding: 0 5px; font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div>
+        <h1>OVERHUE</h1>
+        <div class="sub">숫자는 네모의 넓이입니다. 아래의 모든 겹친 모양을 판 안에 만들고, 빈 칸 없이 채우세요.</div>
+      </div>
+      <div class="chip" id="chip">1 / 20</div>
+    </header>
+
+    <div class="card">
+      <p class="hint" id="hint"></p>
+      <div class="play">
+        <div class="board" id="board">
+          <div class="layers" id="layers"></div>
+          <div class="preview" id="preview"></div>
+          <div class="grid" id="grid"></div>
+        </div>
+        <div class="palette" id="palette"></div>
+      </div>
+      <aside class="mixes" id="mixes"></aside>
+    </div>
+
+    <div class="tools">
+      <button class="tool" id="undo" type="button">되돌리기</button>
+      <button class="tool" id="reset" type="button">이 판 다시</button>
+      <button class="tool" id="how" type="button">방법</button>
+    </div>
+    <div class="status" id="status"></div>
+    <div class="sheet" id="sheet"></div>
+    <p class="help"><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> 색 · 우클릭 지우기 · <kbd>E</kbd> 지우개 · <kbd>Z</kbd> 되돌리기</p>
+  </div>
+
+  <div class="win" id="win">
+    <div class="win-card">
+      <h2>맞았습니다</h2>
+      <p id="winText">다음 판이 조금 더 엉킵니다.</p>
+      <button class="tool" id="next" type="button">다음 판</button>
+    </div>
+  </div>
+
+  <script>
+    const COLORS = [
+      { fill: "#e53935", soft: "rgba(229,57,53,.34)", ink: "#9b1c18", name: "빨강" },
+      { fill: "#f5c518", soft: "rgba(245,197,24,.40)", ink: "#8a6a00", name: "노랑" },
+      { fill: "#1e88e5", soft: "rgba(30,136,229,.34)", ink: "#0d4f8a", name: "파랑" },
+    ];
+
+    const MIX_FILL = {
+      "0+1": "#f09020",
+      "0+2": "#8e3fad",
+      "1+2": "#3cb043",
+      "0+1+2": "#6b4a2a",
+    };
+
+    const SPECS = [
+      { size: 5, n: 3, k: 2, ov: 1, minA: 2, maxA: 10 },
+      { size: 5, n: 3, k: 2, ov: 2, minA: 2, maxA: 12 },
+      { size: 5, n: 4, k: 2, ov: 2, minA: 2, maxA: 12 },
+      { size: 5, n: 4, k: 2, ov: 3, minA: 3, maxA: 12 },
+      { size: 5, n: 4, k: 3, ov: 3, minA: 2, maxA: 12 },
+      { size: 6, n: 4, k: 3, ov: 3, minA: 3, maxA: 14 },
+      { size: 6, n: 5, k: 3, ov: 4, minA: 3, maxA: 14 },
+      { size: 6, n: 5, k: 3, ov: 5, minA: 4, maxA: 16 },
+      { size: 7, n: 5, k: 3, ov: 5, minA: 4, maxA: 16 },
+      { size: 7, n: 6, k: 3, ov: 6, minA: 4, maxA: 18 },
+      { size: 7, n: 6, k: 3, ov: 7, minA: 4, maxA: 18 },
+      { size: 8, n: 6, k: 3, ov: 7, minA: 4, maxA: 18 },
+      { size: 8, n: 7, k: 3, ov: 8, minA: 4, maxA: 20 },
+      { size: 8, n: 7, k: 3, ov: 9, minA: 6, maxA: 20 },
+      { size: 8, n: 8, k: 3, ov: 10, minA: 4, maxA: 20 },
+      { size: 9, n: 8, k: 3, ov: 10, minA: 6, maxA: 22 },
+      { size: 9, n: 8, k: 3, ov: 12, minA: 6, maxA: 24 },
+      { size: 9, n: 9, k: 3, ov: 12, minA: 6, maxA: 24 },
+      { size: 10, n: 9, k: 3, ov: 14, minA: 6, maxA: 24 },
+      { size: 10, n: 10, k: 3, ov: 16, minA: 6, maxA: 28 },
+    ];
+
+    const HINTS = [
+      "숫자는 넓이입니다. 아래 모양을 판에 만드세요.",
+      "같은 색은 겹치면 안 그려집니다.",
+      "네모 네 개. 숫자 넓이로 덮고 아래 힌트도 맞추세요.",
+      "다른 색만 겹칠 수 있습니다.",
+      "세 색이 나옵니다.",
+      "판이 커졌습니다. 숫자부터 맞추세요.",
+      "같은 색 네모는 서로 떨어뜨리세요.",
+      "아래 모양이 전부 생기면 클리어입니다.",
+      "넓이만 맞으면 가로세로는 달라도 됩니다.",
+      "넓은 네모와 작은 네모를 같이 씁니다.",
+      "빈 칸이 하나라도 있으면 아직입니다.",
+      "정해진 그림이 아닙니다. 숫자와 아래 힌트만 맞으면 됩니다.",
+      "같은 넓이라도 1×6과 2×3처럼 다를 수 있습니다.",
+      "작은 숫자부터 두는 편이 쉽습니다.",
+      "네모가 많습니다. 한 번에 너무 크게 긋지 마세요.",
+      "거의 마지막. 아래 힌트가 꽤 있습니다.",
+      "마지막 판. 아래 겹친 모양을 다 만들면 됩니다.",
+      "빈 칸 없이, 아래 힌트까지 맞추세요.",
+      "끝까지. 조건만 맞으면 됩니다.",
+      "모든 칸을 채우고 아래 모양을 맞추세요.",
+    ];
+
+    const boardEl = document.getElementById("board");
+    const layersEl = document.getElementById("layers");
+    const previewEl = document.getElementById("preview");
+    const gridEl = document.getElementById("grid");
+    const statusEl = document.getElementById("status");
+    const mixesEl = document.getElementById("mixes");
+
+    const state = {
+      index: 0,
+      puzzle: null,
+      placed: [],
+      color: 0,
+      erase: false,
+      drag: null,
+      cell: 52,
+      gap: 6,
+    };
+
+    let audioCtx;
+    function beep(freq, dur, type = "sine", gain = 0.04) {
+      try {
+        audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.type = type;
+        o.frequency.value = freq;
+        g.gain.setValueAtTime(gain, audioCtx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+        o.connect(g);
+        g.connect(audioCtx.destination);
+        o.start();
+        o.stop(audioCtx.currentTime + dur);
+      } catch (e) {}
+    }
+
+    function mulberry32(a) {
+      return function () {
+        let t = (a += 0x6d2b79f5);
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    function mixKey(set) {
+      return [...set].sort((a, b) => a - b).join("+");
+    }
+
+    function mixFill(key) {
+      if (MIX_FILL[key]) return MIX_FILL[key];
+      const ids = key.split("+").map(Number);
+      if (ids.length === 1) return COLORS[ids[0]].fill;
+      let r = 0, g = 0, b = 0;
+      ids.forEach((i) => {
+        const n = parseInt(COLORS[i].fill.slice(1), 16);
+        r += n >> 16; g += (n >> 8) & 255; b += n & 255;
+      });
+      const n = ids.length;
+      const hex = (v) => ("0" + Math.round(v / n).toString(16)).slice(-2);
+      return "#" + hex(r) + hex(g) + hex(b);
+    }
+
+    function pickRect(rng, size, minA, maxA) {
+      for (let i = 0; i < 50; i++) {
+        const w = 1 + Math.floor(rng() * size);
+        const h = 1 + Math.floor(rng() * size);
+        const area = w * h;
+        if (area < minA || area > maxA || w > size || h > size) continue;
+        const c = Math.floor(rng() * (size - w + 1));
+        const r = Math.floor(rng() * (size - h + 1));
+        return { r, c, w, h };
+      }
+      return null;
+    }
+
+    function rectsOverlap(a, b) {
+      return a.r < b.r + b.h && b.r < a.r + a.h && a.c < b.c + b.w && b.c < a.c + a.w;
+    }
+
+    function sameColorBlocked(box, color, rects) {
+      return rects.some((R) => R.color === color && rectsOverlap(R, box));
+    }
+
+    function buildMask(size, rects) {
+      const mask = Array.from({ length: size }, () =>
+        Array.from({ length: size }, () => new Set())
+      );
+      for (const R of rects) {
+        for (let r = R.r; r < R.r + R.h; r++) {
+          for (let c = R.c; c < R.c + R.w; c++) mask[r][c].add(R.color);
+        }
+      }
+      return mask;
+    }
+
+    function overlapCount(mask) {
+      let n = 0;
+      for (const row of mask) for (const s of row) if (s.size >= 2) n++;
+      return n;
+    }
+
+    function fullyCovered(mask) {
+      for (const row of mask) for (const s of row) if (s.size === 0) return false;
+      return true;
+    }
+
+    function hasSameColorOverlap(rects) {
+      for (let i = 0; i < rects.length; i++) {
+        for (let j = i + 1; j < rects.length; j++) {
+          if (rects[i].color === rects[j].color && rectsOverlap(rects[i], rects[j])) return true;
+        }
+      }
+      return false;
+    }
+
+    function mixShapes(mask) {
+      const size = mask.length;
+      const seen = Array.from({ length: size }, () => Array(size).fill(false));
+      const shapes = [];
+      const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+      for (let r = 0; r < size; r++) {
+        for (let c = 0; c < size; c++) {
+          if (seen[r][c] || mask[r][c].size < 2) continue;
+          const cells = [];
+          const q = [[r, c]];
+          seen[r][c] = true;
+          while (q.length) {
+            const [rr, cc] = q.pop();
+            cells.push({ r: rr, c: cc, key: mixKey(mask[rr][cc]) });
+            for (const [dr, dc] of dirs) {
+              const nr = rr + dr, nc = cc + dc;
+              if (nr < 0 || nc < 0 || nr >= size || nc >= size || seen[nr][nc]) continue;
+              if (mask[nr][nc].size < 2) continue;
+              seen[nr][nc] = true;
+              q.push([nr, nc]);
+            }
+          }
+          let r0 = size, c0 = size, r1 = 0, c1 = 0;
+          cells.forEach((p) => {
+            r0 = Math.min(r0, p.r); c0 = Math.min(c0, p.c);
+            r1 = Math.max(r1, p.r); c1 = Math.max(c1, p.c);
+          });
+          const h = r1 - r0 + 1, w = c1 - c0 + 1;
+          const bits = Array.from({ length: h }, () => Array(w).fill(""));
+          cells.forEach((p) => { bits[p.r - r0][p.c - c0] = p.key; });
+          shapes.push({ w, h, bits, area: cells.length });
+        }
+      }
+      return shapes;
+    }
+
+    function shapeSig(s) {
+      return s.bits.map((row) => row.map((cell) => cell || ".").join("")).join("/");
+    }
+
+    function mixesMatch(a, b) {
+      if (a.length !== b.length) return false;
+      const ca = a.map(shapeSig).sort();
+      const cb = b.map(shapeSig).sort();
+      return ca.every((x, i) => x === cb[i]);
+    }
+
+    function partitionBoard(rng, size, count) {
+      const pieces = [{ r: 0, c: 0, w: size, h: size }];
+      let guard = 0;
+      while (pieces.length < count && guard++ < 240) {
+        let best = 0;
+        for (let j = 1; j < pieces.length; j++) {
+          if (pieces[j].w * pieces[j].h > pieces[best].w * pieces[best].h) best = j;
+        }
+        const idx = rng() < 0.75 ? best : Math.floor(rng() * pieces.length);
+        const P = pieces[idx];
+        const canV = P.w >= 2;
+        const canH = P.h >= 2;
+        if (!canV && !canH) continue;
+        const vertical = canV && (!canH || rng() < 0.5);
+        if (vertical) {
+          const cut = 1 + Math.floor(rng() * (P.w - 1));
+          pieces.splice(idx, 1,
+            { r: P.r, c: P.c, w: cut, h: P.h },
+            { r: P.r, c: P.c + cut, w: P.w - cut, h: P.h }
+          );
+        } else {
+          const cut = 1 + Math.floor(rng() * (P.h - 1));
+          pieces.splice(idx, 1,
+            { r: P.r, c: P.c, w: P.w, h: cut },
+            { r: P.r + cut, c: P.c, w: P.w, h: P.h - cut }
+          );
+        }
+      }
+      return pieces.length === count ? pieces : null;
+    }
+
+    function colorAllowed(size, rects, color) {
+      const mask = buildMask(size, rects);
+      return mask.map((row) => row.map((s) => !s.has(color)));
+    }
+
+    function pickRectInAllowed(rng, size, minA, maxA, allowed) {
+      for (let i = 0; i < 80; i++) {
+        const box = pickRect(rng, size, minA, maxA);
+        if (!box) continue;
+        let ok = true;
+        for (let r = box.r; r < box.r + box.h && ok; r++) {
+          for (let c = box.c; c < box.c + box.w; c++) {
+            if (!allowed[r][c]) ok = false;
+          }
+        }
+        if (ok) return box;
+      }
+      return null;
+    }
+
+    function placeClues(rng, size, rects) {
+      const mask = buildMask(size, rects);
+      const used = new Set();
+      const clues = [];
+      for (const R of rects) {
+        const exclusive = [];
+        const shared = [];
+        for (let r = R.r; r < R.r + R.h; r++) {
+          for (let c = R.c; c < R.c + R.w; c++) {
+            const key = r + "," + c;
+            if (used.has(key)) continue;
+            (mask[r][c].size === 1 ? exclusive : shared).push([r, c]);
+          }
+        }
+        const pool = exclusive.length ? exclusive : shared;
+        if (!pool.length) return null;
+        const [r, c] = pool[Math.floor(rng() * pool.length)];
+        used.add(r + "," + c);
+        clues.push({ r, c, area: R.w * R.h });
+      }
+      return clues;
+    }
+
+    function generate(spec, seed) {
+      const k = Math.max(2, spec.k);
+      for (let t = 0; t < 1200; t++) {
+        const rng = mulberry32(seed + t * 7919);
+        const extraMax = Math.max(1, spec.n - 1);
+        const extraCount = 1 + Math.floor(rng() * extraMax);
+        const partCount = spec.n - extraCount;
+        if (partCount < 1) continue;
+        const parts = partitionBoard(rng, spec.size, partCount);
+        if (!parts) continue;
+        const rects = parts.map((box, id) => ({
+          ...box,
+          color: Math.floor(rng() * k),
+          id,
+        }));
+        if (new Set(rects.map((R) => R.color)).size < 2 && rects.length >= 2) {
+          rects[0].color = 0;
+          rects[1].color = 1;
+        } else if (rects.length === 1) {
+          rects[0].color = 0;
+        }
+        let extrasOk = true;
+        for (let e = 0; e < extraCount; e++) {
+          const minA = Math.max(2, spec.minA);
+          const room = [];
+          for (let color = 0; color < k; color++) {
+            const allowed = colorAllowed(spec.size, rects, color);
+            let cells = 0;
+            for (const row of allowed) for (const ok of row) if (ok) cells++;
+            if (cells >= minA) room.push(color);
+          }
+          if (!room.length) {
+            extrasOk = false;
+            break;
+          }
+          const color = room[Math.floor(rng() * room.length)];
+          const allowed = colorAllowed(spec.size, rects, color);
+          const box = pickRectInAllowed(rng, spec.size, minA, spec.maxA, allowed);
+          if (!box || sameColorBlocked(box, color, rects)) {
+            extrasOk = false;
+            break;
+          }
+          rects.push({ ...box, color, id: rects.length });
+        }
+        if (!extrasOk || rects.length !== spec.n) continue;
+        if (hasSameColorOverlap(rects)) continue;
+        const mask = buildMask(spec.size, rects);
+        if (!fullyCovered(mask)) continue;
+        if (overlapCount(mask) < spec.ov) continue;
+        const mixes = mixShapes(mask);
+        if (!mixes.length) continue;
+        const clues = placeClues(rng, spec.size, rects);
+        if (!clues) continue;
+        return { size: spec.size, rects, clues, mixes };
+      }
+      return null;
+    }
+
+    function loadProgress() {
+      const n = parseInt(localStorage.getItem("gyeopnemo-max-v3") || "0", 10);
+      return Math.max(0, Math.min(19, isNaN(n) ? 0 : n));
+    }
+    function saveProgress(i) {
+      if (i > loadProgress()) localStorage.setItem("gyeopnemo-max-v3", String(Math.min(19, i)));
+    }
+
+    function geom() {
+      const size = state.puzzle.size;
+      const max = Math.min(400, window.innerWidth - 96);
+      const cell = Math.max(26, Math.floor((max - (size - 1) * state.gap) / size));
+      state.cell = cell;
+      return { cell, gap: state.gap, size };
+    }
+
+    function rectBox(R) {
+      const { cell, gap } = geom();
+      const col = COLORS[R.color];
+      return {
+        left: R.c * (cell + gap) + "px",
+        top: R.r * (cell + gap) + "px",
+        width: R.w * cell + (R.w - 1) * gap + "px",
+        height: R.h * cell + (R.h - 1) * gap + "px",
+        background: col.soft,
+        boxShadow: "inset 0 0 0 2px " + col.fill,
+      };
+    }
+
+    function apply(el, st) {
+      Object.assign(el.style, st);
+    }
+
+    function cellAt(x, y) {
+      const { cell, gap, size } = geom();
+      const b = boardEl.getBoundingClientRect();
+      const c = Math.floor((x - b.left) / (cell + gap));
+      const r = Math.floor((y - b.top) / (cell + gap));
+      if (r < 0 || c < 0 || r >= size || c >= size) return null;
+      return { r, c };
+    }
+
+    function normalize(a, b) {
+      const r1 = Math.min(a.r, b.r), c1 = Math.min(a.c, b.c);
+      const r2 = Math.max(a.r, b.r), c2 = Math.max(a.c, b.c);
+      return { r: r1, c: c1, h: r2 - r1 + 1, w: c2 - c1 + 1 };
+    }
+
+    function sameRect(a, b) {
+      return a.r === b.r && a.c === b.c && a.w === b.w && a.h === b.h && a.color === b.color;
+    }
+
+    function playerMask() {
+      return buildMask(state.puzzle.size, state.placed);
+    }
+
+    function rectContains(R, clue) {
+      return clue.r >= R.r && clue.c >= R.c && clue.r < R.r + R.h && clue.c < R.c + R.w;
+    }
+
+    function cluesOk() {
+      const clues = state.puzzle.clues;
+      const rects = state.placed;
+      if (rects.length !== clues.length) return false;
+      const options = clues.map((clue) => {
+        const hits = [];
+        rects.forEach((R, i) => {
+          if (R.w * R.h === clue.area && rectContains(R, clue)) hits.push(i);
+        });
+        return hits;
+      });
+      if (options.some((hits) => !hits.length)) return false;
+      const used = new Array(rects.length).fill(false);
+      function assign(k) {
+        if (k === clues.length) return true;
+        for (const i of options[k]) {
+          if (used[i]) continue;
+          used[i] = true;
+          if (assign(k + 1)) return true;
+          used[i] = false;
+        }
+        return false;
+      }
+      return assign(0);
+    }
+
+    function setStatus(text, kind) {
+      statusEl.textContent = text;
+      statusEl.className = "status" + (kind ? " " + kind : "");
+    }
+
+    function clueMismatchReason() {
+      const clues = state.puzzle.clues;
+      const rects = state.placed;
+      if (rects.length !== clues.length) {
+        return "네모 개수가 숫자 개수와 다릅니다.";
+      }
+      for (const clue of clues) {
+        const hits = rects.filter((R) => R.w * R.h === clue.area && rectContains(R, clue));
+        if (!hits.length) {
+          return "숫자 " + clue.area + "을(를) 덮는, 넓이 " + clue.area + "인 네모가 없습니다.";
+        }
+      }
+      if (!cluesOk()) {
+        return "같은 넓이 네모가 숫자를 잘못 나눠 가졌습니다. 숫자마다 네모 하나씩 짝이 맞아야 합니다.";
+      }
+      return "숫자와 네모 넓이가 맞지 않습니다.";
+    }
+
+    function checkWin() {
+      const need = state.puzzle.clues.length - state.placed.length;
+      const mask = playerMask();
+      const cover = fullyCovered(mask);
+      const playerMixes = mixShapes(mask);
+      if (need > 0) {
+        setStatus("네모 " + need + "개 남음");
+        return;
+      }
+      if (!cluesOk()) {
+        setStatus(clueMismatchReason(), "bad");
+        return;
+      }
+      if (!cover) {
+        setStatus("빈 칸이 있습니다.", "bad");
+        return;
+      }
+      if (!mixesMatch(playerMixes, state.puzzle.mixes)) {
+        setStatus("옆에 있는 겹친 모양·색과 다릅니다.", "bad");
+        return;
+      }
+      setStatus("맞았습니다", "ok");
+      beep(523, 0.08);
+      setTimeout(() => beep(784, 0.14), 80);
+      document.getElementById("winText").textContent =
+        state.index === 19 ? "20판을 다 열었습니다." : "옆 힌트와 맞는 채움입니다. 다음 판이 조금 더 엉킵니다.";
+      document.getElementById("win").classList.add("show");
+      saveProgress(state.index + 1);
+      renderSheet();
+    }
+
+    function renderMixes() {
+      mixesEl.innerHTML = "";
+      const label = document.createElement("p");
+      label.className = "mixes-label";
+      label.textContent = "모든 겹쳐서 생긴 색";
+      mixesEl.appendChild(label);
+      if (!state.puzzle || !state.puzzle.mixes.length) return;
+      state.puzzle.mixes.forEach((s) => {
+        const wrap = document.createElement("div");
+        wrap.className = "mix";
+        const g = document.createElement("div");
+        g.className = "mix-grid";
+        g.style.gridTemplateColumns = "repeat(" + s.w + ", 12px)";
+        s.bits.forEach((row) => {
+          row.forEach((cell) => {
+            const i = document.createElement("i");
+            if (cell) {
+              i.className = "on";
+              i.style.background = mixFill(cell);
+            }
+            g.appendChild(i);
+          });
+        });
+        wrap.appendChild(g);
+        mixesEl.appendChild(wrap);
+      });
+    }
+
+    function renderBoard() {
+      if (!state.puzzle) return;
+      const { cell, gap, size } = geom();
+      const w = size * cell + (size - 1) * gap;
+      boardEl.style.width = w + "px";
+      boardEl.style.height = w + "px";
+      gridEl.style.gridTemplateColumns = "repeat(" + size + ", " + cell + "px)";
+      gridEl.style.gridTemplateRows = "repeat(" + size + ", " + cell + "px)";
+      gridEl.style.gap = gap + "px";
+      gridEl.innerHTML = "";
+      const clueMap = new Map(state.puzzle.clues.map((x) => [x.r + "," + x.c, x]));
+      const playMask = playerMask();
+      for (let r = 0; r < size; r++) {
+        for (let c = 0; c < size; c++) {
+          const el = document.createElement("div");
+          el.className = "cell";
+          const clue = clueMap.get(r + "," + c);
+          if (clue) {
+            const n = document.createElement("div");
+            n.className = "num";
+            n.textContent = clue.area;
+            el.appendChild(n);
+          }
+          const set = playMask[r][c];
+          if (set.size === 0) el.classList.add("void");
+          if (set.size >= 2) el.style.background = mixFill(mixKey(set));
+          gridEl.appendChild(el);
+        }
+      }
+      layersEl.innerHTML = "";
+      state.placed.forEach((R) => {
+        const el = document.createElement("div");
+        el.className = "rect pop";
+        apply(el, rectBox(R));
+        layersEl.appendChild(el);
+      });
+    }
+
+    function renderPalette() {
+      const pal = document.getElementById("palette");
+      pal.innerHTML = "";
+      COLORS.forEach((col, i) => {
+        const b = document.createElement("button");
+        b.className = "swatch" + (state.color === i && !state.erase ? " on" : "");
+        b.style.background = col.fill;
+        b.title = col.name;
+        b.type = "button";
+        b.onclick = () => {
+          state.color = i;
+          state.erase = false;
+          renderPalette();
+          beep(330 + i * 40, 0.05, "triangle", 0.03);
+        };
+        pal.appendChild(b);
+      });
+      const er = document.createElement("button");
+      er.className = "swatch erase" + (state.erase ? " on" : "");
+      er.type = "button";
+      er.textContent = "지우개";
+      er.onclick = () => {
+        state.erase = true;
+        renderPalette();
+      };
+      pal.appendChild(er);
+    }
+
+    function renderSheet() {
+      const max = loadProgress();
+      const sheet = document.getElementById("sheet");
+      sheet.innerHTML = "";
+      for (let i = 0; i < 20; i++) {
+        const b = document.createElement("button");
+        b.className = "mini" + (i === state.index ? " cur" : "") + (i < max ? " cleared" : "");
+        b.textContent = String(i + 1);
+        b.disabled = i > max;
+        b.type = "button";
+        b.onclick = () => loadStage(i);
+        sheet.appendChild(b);
+      }
+    }
+
+    function loadStage(i) {
+      document.getElementById("win").classList.remove("show");
+      state.index = i;
+      const spec = SPECS[i];
+      const base = 20260825 + i * 104729;
+      let puzzle = generate(spec, base);
+      if (!puzzle) {
+        puzzle = generate({ ...spec, ov: Math.max(1, spec.ov - 4), maxA: spec.maxA + 10 }, base + 17);
+      }
+      if (!puzzle) {
+        setStatus("이 판을 못 만들었습니다.");
+        return;
+      }
+      state.puzzle = puzzle;
+      state.placed = [];
+      state.erase = false;
+      state.drag = null;
+      state.color = 0;
+      document.getElementById("chip").textContent = i + 1 + " / 20";
+      document.getElementById("hint").textContent = HINTS[i];
+      setStatus("");
+      renderPalette();
+      renderMixes();
+      renderBoard();
+      renderSheet();
+    }
+
+    function tryPlace(box) {
+      if (sameColorBlocked(box, state.color, state.placed)) {
+        setStatus("같은 색은 겹칠 수 없습니다.", "bad");
+        beep(160, 0.08, "square", 0.03);
+        return;
+      }
+      const R = { ...box, color: state.color };
+      if (state.placed.some((x) => sameRect(x, R))) return;
+      state.placed.push(R);
+      beep(480, 0.06, "sine", 0.035);
+      renderBoard();
+      checkWin();
+    }
+
+    function eraseAt(cell) {
+      for (let i = state.placed.length - 1; i >= 0; i--) {
+        const R = state.placed[i];
+        if (cell.r >= R.r && cell.c >= R.c && cell.r < R.r + R.h && cell.c < R.c + R.w) {
+          state.placed.splice(i, 1);
+          beep(180, 0.07, "square", 0.03);
+          renderBoard();
+          setStatus("네모를 뺐습니다");
+          return;
+        }
+      }
+    }
+
+    boardEl.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+    });
+
+    boardEl.addEventListener("pointerdown", (e) => {
+      if (!state.puzzle) return;
+      boardEl.setPointerCapture(e.pointerId);
+      const cell = cellAt(e.clientX, e.clientY);
+      if (!cell) return;
+      if (e.button === 2 || state.erase) {
+        eraseAt(cell);
+        return;
+      }
+      if (e.button !== 0) return;
+      state.drag = { start: cell, cur: cell };
+      previewEl.innerHTML = "";
+    });
+
+    boardEl.addEventListener("pointermove", (e) => {
+      if (!state.drag) return;
+      const cell = cellAt(e.clientX, e.clientY);
+      if (!cell) return;
+      state.drag.cur = cell;
+      const box = normalize(state.drag.start, state.drag.cur);
+      previewEl.innerHTML = "";
+      const blocked = sameColorBlocked(box, state.color, state.placed);
+      const el = document.createElement("div");
+      el.className = "rect" + (blocked ? " bad" : "");
+      apply(el, rectBox({ ...box, color: state.color }));
+      const n = document.createElement("div");
+      n.className = "area";
+      n.textContent = String(box.w * box.h);
+      n.style.color = blocked ? "#b42318" : COLORS[state.color].ink;
+      el.appendChild(n);
+      previewEl.appendChild(el);
+    });
+
+    function endDrag() {
+      if (!state.drag) return;
+      const box = normalize(state.drag.start, state.drag.cur);
+      state.drag = null;
+      previewEl.innerHTML = "";
+      tryPlace(box);
+    }
+    boardEl.addEventListener("pointerup", endDrag);
+    boardEl.addEventListener("pointercancel", () => {
+      state.drag = null;
+      previewEl.innerHTML = "";
+    });
+
+    document.getElementById("undo").onclick = () => {
+      state.placed.pop();
+      renderBoard();
+      setStatus("");
+      beep(220, 0.05, "triangle", 0.03);
+    };
+    document.getElementById("reset").onclick = () => loadStage(state.index);
+    document.getElementById("how").onclick = () => {
+      alert(
+        "1) 옆 색을 고르고 드래그해 네모를 그립니다.\n2) 숫자는 그 네모의 넓이입니다.\n3) 아래의 모든 겹쳐서 생긴 색을 판 안에 만드세요.\n4) 모든 칸을 채우세요. 같은 색은 겹칠 수 없습니다.\n5) 우클릭으로 지울 수 있습니다."
+      );
+    };
+    document.getElementById("next").onclick = () => loadStage(Math.min(19, state.index + 1));
+
+    window.addEventListener("keydown", (e) => {
+      if (["1", "2", "3"].includes(e.key)) {
+        state.color = parseInt(e.key, 10) - 1;
+        state.erase = false;
+        renderPalette();
+      }
+      if (e.key === "e" || e.key === "E") {
+        state.erase = true;
+        renderPalette();
+      }
+      if ((e.key === "z" || e.key === "Z") && !e.ctrlKey) {
+        document.getElementById("undo").click();
+      }
+    });
+    window.addEventListener("resize", () => renderBoard());
+
+    loadStage(Math.min(loadProgress(), 19));
+  </script>
+</body>
+</html>
