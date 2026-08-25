@@ -830,7 +830,7 @@
       },
     ];
 
-    const STAGE_N = 50 + TUTORIALS.length;
+    const STAGE_N = 120;
     const EARLY = [
       { size: 5, n: 3, k: 2, ov: 1, minA: 2, maxA: 10 },
       { size: 5, n: 3, k: 2, ov: 2, minA: 2, maxA: 12 },
@@ -852,6 +852,10 @@
       { size: 9, n: 9, k: 3, ov: 12, minA: 6, maxA: 24 },
       { size: 10, n: 9, k: 3, ov: 14, minA: 6, maxA: 24 },
       { size: 10, n: 10, k: 3, ov: 16, minA: 6, maxA: 28 },
+      { size: 10, n: 10, k: 3, ov: 17, minA: 6, maxA: 28 },
+      { size: 10, n: 11, k: 3, ov: 18, minA: 6, maxA: 28 },
+      { size: 10, n: 11, k: 3, ov: 18, minA: 5, maxA: 30 },
+      { size: 10, n: 12, k: 3, ov: 19, minA: 5, maxA: 30 },
     ];
 
     function specFor(i) {
@@ -859,11 +863,32 @@
       const gi = i - TUTORIALS.length;
       if (gi < EARLY.length) return EARLY[gi];
       const j = gi - EARLY.length;
-      const size = j < 12 ? 9 : 10;
-      const n = Math.min(8 + Math.floor(j / 6), 10);
-      const ov = Math.min(10 + Math.floor(j / 3), 18);
-      const minA = 4;
-      const maxA = size === 9 ? 22 : 26;
+      let size, n, ov, minA, maxA;
+      if (j < 16) {
+        size = 9;
+        n = Math.min(8 + Math.floor(j / 5), 11);
+        ov = Math.min(10 + Math.floor(j / 3), 18);
+        minA = 4;
+        maxA = 24;
+      } else if (j < 48) {
+        size = 10;
+        n = Math.min(9 + Math.floor((j - 16) / 6), 13);
+        ov = Math.min(14 + Math.floor((j - 16) / 4), 22);
+        minA = 5;
+        maxA = 28;
+      } else if (j < 72) {
+        size = 10;
+        n = Math.min(11 + Math.floor((j - 48) / 6), 14);
+        ov = Math.min(18 + Math.floor((j - 48) / 4), 26);
+        minA = 5;
+        maxA = 30;
+      } else {
+        size = 11;
+        n = Math.min(12 + Math.floor((j - 72) / 5), 16);
+        ov = Math.min(20 + Math.floor((j - 72) / 3), 30);
+        minA = 5;
+        maxA = 32;
+      }
       return { size, n, k: 3, ov, minA, maxA };
     }
     const SPECS = Array.from({ length: STAGE_N }, (_, i) => specFor(i));
