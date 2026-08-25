@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>OVERHUE 에디터</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --paper: #f3ead8;
+      --ink: #2a241c;
+      --muted: #7a7064;
+      --line: #d7ccb8;
+      --shadow: 0 18px 50px rgba(60, 42, 20, .12);
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: "IBM Plex Sans KR", sans-serif;
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #fff6e6, transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, #f7d9c8, transparent 45%),
+        var(--paper);
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    button { font-family: inherit; }
+    .app {
+      max-width: 720px;
+      margin: 0 auto;
+      min-height: 100%;
+      padding: 18px 16px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    header { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+    h1 { font-family: Fraunces, serif; font-size: 26px; margin: 0; letter-spacing: -.03em; }
+    .sub { color: var(--muted); font-size: 13px; margin-top: 4px; line-height: 1.4; }
+    a.back { color: var(--ink); font-size: 13px; font-weight: 600; }
+    .card {
+      background: #fffdf8;
+      border: 1px solid #eadfca;
+      border-radius: 22px;
+      padding: 14px;
+      box-shadow: var(--shadow);
+    }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+    .row label { font-size: 12px; font-weight: 600; color: var(--muted); }
+    select, .tool {
+      background: #fff; border: 1px solid var(--line); border-radius: 14px;
+      padding: 10px 14px; font-weight: 600; font-size: 13px; cursor: pointer;
+    }
+    .play {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .board { position: relative; touch-action: none; }
+    .layers, .preview, .grid { position: absolute; inset: 0; pointer-events: none; }
+    .layers { z-index: 1; }
+    .preview { z-index: 2; }
+    .grid { display: grid; z-index: 3; }
+    .cell {
+      position: relative;
+      border-radius: 8px;
+      background: rgba(42, 36, 28, .03);
+      box-shadow: inset 0 0 0 1px rgba(42, 36, 28, .07);
+    }
+    .cell.paper { background: repeating-linear-gradient(-12deg, transparent, transparent 6px, rgba(42,36,28,.03) 6px, rgba(42,36,28,.03) 7px); }
+    .num {
+      position: absolute; inset: 0;
+      display: grid; place-items: center;
+      font-weight: 700; font-size: 16px; z-index: 2;
+      color: var(--ink);
+    }
+    .rect { position: absolute; border-radius: 10px; pointer-events: none; }
+    .preview .rect { outline: 2px dashed rgba(42,36,28,.32); outline-offset: -2px; }
+    .preview .rect.bad {
+      outline-color: #b42318;
+      background: rgba(180, 35, 24, .18) !important;
+      box-shadow: inset 0 0 0 2px #b42318 !important;
+    }
+    .preview .area {
+      position: absolute; inset: 0;
+      display: grid; place-items: center;
+      font-weight: 700; font-size: 18px; opacity: .85;
+    }
+    .pots {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      max-width: 86px;
+    }
+    body.draw .pots { max-width: 200px; }
+    .pot {
+      width: 46px; height: 54px; border: 0; cursor: pointer;
+      border-radius: 14px 14px 20px 20px;
+      box-shadow: 0 8px 16px rgba(42,36,28,.14), inset 0 -8px 0 rgba(0,0,0,.08);
+      position: relative;
+    }
+    .pot::after {
+      content: "";
+      position: absolute; top: 7px; left: 9px;
+      width: 14px; height: 9px;
+      background: rgba(255,255,255,.4);
+      border-radius: 50%;
+    }
+    .pot.on { box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--ink), inset 0 -8px 0 rgba(0,0,0,.08); }
+    .pot.erase {
+      width: auto; padding: 0 10px; height: 54px;
+      background: #fff; color: var(--ink); font-weight: 700; font-size: 12px;
+      box-shadow: inset 0 0 0 1px var(--line);
+      border-radius: 14px;
+    }
+    .pot.erase::after { display: none; }
+    .mixes { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 12px; }
+    .mixes-label {
+      flex: 0 0 100%;
+      font-size: 11px; font-weight: 600; color: var(--muted);
+      margin: 0; text-align: center;
+    }
+    .mix { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 8px; }
+    .mix-grid { display: grid; gap: 2px; justify-content: center; }
+    .mix-grid i { display: block; width: 12px; height: 12px; border-radius: 3px; background: rgba(42,36,28,.06); }
+    .list { font-size: 12px; color: var(--muted); line-height: 1.55; margin: 10px 0 0; }
+    .status { text-align: center; font-size: 13px; color: var(--muted); min-height: 1.3em; }
+    .status.ok { color: #1f7a4d; font-weight: 700; }
+    .status.bad { color: #b42318; }
+    .tools { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+    .tool:active, .pot:active { transform: scale(.96); }
+    .help { font-size: 12px; color: var(--muted); line-height: 1.55; margin: 0; }
+    body.play .draw-only { display: none; }
+    body.draw .play-only { display: none; }
+    .win {
+      display: none; position: fixed; inset: 0;
+      background: rgba(42,36,28,.28); place-items: center; z-index: 20; padding: 20px;
+    }
+    .win.show { display: grid; }
+    .win-card {
+      background: #fffdf8; border-radius: 24px; padding: 22px 20px;
+      width: min(360px, 100%); text-align: center; box-shadow: var(--shadow);
+    }
+    .win-card h2 { font-family: Fraunces, serif; margin: 0 0 8px; }
+    .win-card p { color: var(--muted); margin: 0 0 16px; }
+  </style>
+</head>
+<body class="draw">
+  <div class="app">
+    <header>
+      <div>
+        <h1>OVERHUE 에디터</h1>
+        <div class="sub" id="sub">7색으로 그림을 칠하면, 겹친 물감 네모로 나눕니다.</div>
+      </div>
+      <a class="back" href="index.html">본편</a>
+    </header>
+
+    <div class="card">
+      <div class="row draw-only">
+        <label>크기</label>
+        <select id="sizeSel"></select>
+        <button class="tool" id="exOverlap" type="button">겹침 예시</button>
+        <button class="tool" id="exHouse" type="button">집 예시</button>
+      </div>
+      <div class="play">
+        <div class="board" id="board">
+          <div class="layers" id="layers"></div>
+          <div class="preview" id="preview"></div>
+          <div class="grid" id="grid"></div>
+        </div>
+        <div class="pots" id="pots"></div>
+      </div>
+      <aside class="mixes" id="mixes"></aside>
+      <p class="list" id="rectList"></p>
+    </div>
+
+    <div class="tools draw-only">
+      <button class="tool" id="clear" type="button">판 비우기</button>
+      <button class="tool" id="build" type="button">네모로 나누기</button>
+      <button class="tool" id="playBtn" type="button">이 판 시험</button>
+      <button class="tool" id="copyJson" type="button">JSON 복사</button>
+    </div>
+    <div class="tools play-only">
+      <button class="tool" id="undo" type="button">되돌리기</button>
+      <button class="tool" id="resetPlay" type="button">다시</button>
+      <button class="tool" id="showAns" type="button">정답 네모</button>
+      <button class="tool" id="backDraw" type="button">그리기로</button>
+    </div>
+    <div class="status" id="status"></div>
+    <p class="help draw-only">칸을 칠한 뒤 「네모로 나누기」를 누르세요. 빈 칸은 종이로 남고, 시험 플레이에서는 덮을 수 없습니다.</p>
+    <p class="help play-only">본편과 같이 삼원색 네모를 올립니다. 그림과 같은 겹침이 나와야 합니다.</p>
+  </div>
+
+  <div class="win" id="win">
+    <div class="win-card">
+      <h2>그림이 맞았습니다</h2>
+      <p>분해한 네모로 원본 색이 재구성됐습니다.</p>
+      <button class="tool" id="winBack" type="button">그리기로</button>
+    </div>
+  </div>
+
+  <script>
+    const COLORS = [
+      { fill: "#e53935", soft: "rgba(229,57,53,.34)", ink: "#9b1c18", name: "빨강", key: "0" },
+      { fill: "#f5c518", soft: "rgba(245,197,24,.40)", ink: "#8a6a00", name: "노랑", key: "1" },
+      { fill: "#1e88e5", soft: "rgba(30,136,229,.34)", ink: "#0d4f8a", name: "파랑", key: "2" },
+    ];
+    const MIX_FILL = {
+      "0": "#e53935",
+      "1": "#f5c518",
+      "2": "#1e88e5",
+      "0+1": "#f09020",
+      "0+2": "#8e3fad",
+      "1+2": "#3cb043",
+      "0+1+2": "#6b4a2a",
+    };
+    const PAINTS = [
+      { key: "0", name: "빨강" },
+      { key: "1", name: "노랑" },
+      { key: "2", name: "파랑" },
+      { key: "0+1", name: "주황" },
+      { key: "1+2", name: "초록" },
+      { key: "0+2", name: "보라" },
+      { key: "0+1+2", name: "갈색" },
+    ];
+
+    const boardEl = document.getElementById("board");
+    const layersEl = document.getElementById("layers");
+    const previewEl = document.getElementById("preview");
+    const gridEl = document.getElementById("grid");
+    const statusEl = document.getElementById("status");
+    const mixesEl = document.getElementById("mixes");
+    const rectListEl = document.getElementById("rectList");
+
+    const state = {
+      mode: "draw",
+      size: 8,
+      paint: [],
+      brush: "0",
+      erase: false,
+      puzzle: null,
+      placed: [],
+      color: 0,
+      drag: null,
+      cell: 44,
+      gap: 6,
+      showAnswer: false,
+    };
+
+    let audioCtx;
+    function beep(freq, dur, type = "sine", gain = 0.04) {
+      try {
+        audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.type = type;
+        o.frequency.value = freq;
+        g.gain.setValueAtTime(gain, audioCtx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+        o.connect(g);
+        g.connect(audioCtx.destination);
+        o.start();
+        o.stop(audioCtx.currentTime + dur);
+      } catch (e) {}
+    }
+
+    function mixKey(set) {
+      return [...set].sort((a, b) => a - b).join("+");
+    }
+    function mixFill(key) {
+      return MIX_FILL[key] || "#ccc";
+    }
+    function keySet(key) {
+      if (!key) return new Set();
+      return new Set(key.split("+").map(Number));
+    }
+    function emptyGrid(n) {
+      return Array.from({ length: n }, () => Array(n).fill(""));
+    }
+
+    function mulberry32(a) {
+      return function () {
+        let t = (a += 0x6d2b79f5);
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    function hashPaint(grid) {
+      let h = 2166136261;
+      for (const row of grid) {
+        for (const k of row) {
+          h ^= k.length + 1;
+          for (let i = 0; i < k.length; i++) h = Math.imul(h ^ k.charCodeAt(i), 16777619);
+        }
+      }
+      return h >>> 0;
+    }
+
+    function largestHistogram(heights, bottom) {
+      const n = heights.length;
+      const left = Array(n);
+      const right = Array(n);
+      const st = [];
+      for (let i = 0; i < n; i++) {
+        while (st.length && heights[st[st.length - 1]] >= heights[i]) st.pop();
+        left[i] = st.length ? st[st.length - 1] + 1 : 0;
+        st.push(i);
+      }
+      st.length = 0;
+      for (let i = n - 1; i >= 0; i--) {
+        while (st.length && heights[st[st.length - 1]] >= heights[i]) st.pop();
+        right[i] = st.length ? st[st.length - 1] - 1 : n - 1;
+        st.push(i);
+      }
+      let best = null;
+      for (let i = 0; i < n; i++) {
+        if (!heights[i]) continue;
+        const w = right[i] - left[i] + 1;
+        const area = w * heights[i];
+        if (!best || area > best.area) {
+          best = { r: bottom - heights[i] + 1, c: left[i], w, h: heights[i], area };
+        }
+      }
+      return best;
+    }
+
+    function largestRect(mask) {
+      const rows = mask.length;
+      const cols = mask[0].length;
+      const heights = Array(cols).fill(0);
+      let best = null;
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) heights[c] = mask[r][c] ? heights[c] + 1 : 0;
+        const box = largestHistogram(heights, r);
+        if (box && (!best || box.area > best.area)) best = box;
+      }
+      return best;
+    }
+
+    function partitionMask(mask) {
+      const rows = mask.length;
+      const cols = mask[0].length;
+      const left = mask.map((row) => row.slice());
+      const rects = [];
+      let guard = 0;
+      while (guard++ < rows * cols + 2) {
+        const box = largestRect(left);
+        if (!box) break;
+        rects.push({ r: box.r, c: box.c, w: box.w, h: box.h });
+        for (let r = box.r; r < box.r + box.h; r++) {
+          for (let c = box.c; c < box.c + box.w; c++) left[r][c] = false;
+        }
+      }
+      return rects;
+    }
+
+    function colorSupport(paint, color) {
+      return paint.map((row) => row.map((key) => keySet(key).has(color)));
+    }
+
+    function buildMask(size, rects) {
+      const mask = Array.from({ length: size }, () =>
+        Array.from({ length: size }, () => new Set())
+      );
+      for (const R of rects) {
+        for (let r = R.r; r < R.r + R.h; r++) {
+          for (let c = R.c; c < R.c + R.w; c++) mask[r][c].add(R.color);
+        }
+      }
+      return mask;
+    }
+
+    function rectsOverlap(a, b) {
+      return a.r < b.r + b.h && b.r < a.r + a.h && a.c < b.c + b.w && b.c < a.c + b.w;
+    }
+    function sameColorBlocked(box, color, rects) {
+      return rects.some((R) => R.color === color && rectsOverlap(R, box));
+    }
+
+    function mixShapes(mask) {
+      const size = mask.length;
+      const seen = Array.from({ length: size }, () => Array(size).fill(false));
+      const shapes = [];
+      const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+      for (let r = 0; r < size; r++) {
+        for (let c = 0; c < size; c++) {
+          if (seen[r][c] || mask[r][c].size < 2) continue;
+          const cells = [];
+          const q = [[r, c]];
+          seen[r][c] = true;
+          while (q.length) {
+            const [rr, cc] = q.pop();
+            cells.push({ r: rr, c: cc, key: mixKey(mask[rr][cc]) });
+            for (const [dr, dc] of dirs) {
+              const nr = rr + dr, nc = cc + dc;
+              if (nr < 0 || nc < 0 || nr >= size || nc >= size || seen[nr][nc]) continue;
+              if (mask[nr][nc].size < 2) continue;
+              seen[nr][nc] = true;
+              q.push([nr, nc]);
+            }
+          }
+          let r0 = size, c0 = size, r1 = 0, c1 = 0;
+          cells.forEach((p) => {
+            r0 = Math.min(r0, p.r); c0 = Math.min(c0, p.c);
+            r1 = Math.max(r1, p.r); c1 = Math.max(c1, p.c);
+          });
+          const h = r1 - r0 + 1, w = c1 - c0 + 1;
+          const bits = Array.from({ length: h }, () => Array(w).fill(""));
+          cells.forEach((p) => { bits[p.r - r0][p.c - c0] = p.key; });
+          shapes.push({ w, h, bits, area: cells.length });
+        }
+      }
+      return shapes;
+    }
+
+    function shapeSig(s) {
+      return s.bits.map((row) => row.map((cell) => cell || ".").join("")).join("/");
+    }
+
+    function placeClues(rng, size, rects) {
+      const mask = buildMask(size, rects);
+      const used = new Set();
+      const clues = [];
+      for (const R of rects) {
+        const exclusive = [];
+        const shared = [];
+        for (let r = R.r; r < R.r + R.h; r++) {
+          for (let c = R.c; c < R.c + R.w; c++) {
+            const key = r + "," + c;
+            if (used.has(key)) continue;
+            (mask[r][c].size === 1 ? exclusive : shared).push([r, c]);
+          }
+        }
+        const pool = exclusive.length ? exclusive : shared;
+        if (!pool.length) return null;
+        const [r, c] = pool[Math.floor(rng() * pool.length)];
+        used.add(r + "," + c);
+        clues.push({ r, c, area: R.w * R.h });
+      }
+      return clues;
+    }
+
+    function maskFromPaint(paint) {
+      return paint.map((row) => row.map((key) => keySet(key)));
+    }
+
+    function masksEqual(a, b) {
+      if (a.length !== b.length) return false;
+      for (let r = 0; r < a.length; r++) {
+        for (let c = 0; c < a.length; c++) {
+          if (mixKey(a[r][c]) !== mixKey(b[r][c])) return false;
+        }
+      }
+      return true;
+    }
+
+    function hitsPaper(box) {
+      for (let r = box.r; r < box.r + box.h; r++) {
+        for (let c = box.c; c < box.c + box.w; c++) {
+          if (!state.paint[r][c]) return true;
+        }
+      }
+      return false;
+    }
+
+    function decompose() {
+      const size = state.size;
+      const rects = [];
+      for (let color = 0; color < 3; color++) {
+        const support = colorSupport(state.paint, color);
+        const boxes = partitionMask(support);
+        boxes.forEach((box) => rects.push({ ...box, color, id: rects.length }));
+      }
+      if (!rects.length) return { ok: false, reason: "칠한 칸이 없습니다." };
+      const rebuilt = buildMask(size, rects);
+      if (!masksEqual(rebuilt, maskFromPaint(state.paint))) {
+        return { ok: false, reason: "분해 결과가 그림과 다릅니다. (버그)" };
+      }
+      const rng = mulberry32(hashPaint(state.paint) || 1);
+      const clues = placeClues(rng, size, rects);
+      if (!clues) return { ok: false, reason: "숫자를 놓을 칸이 없습니다." };
+      const mixes = mixShapes(rebuilt);
+      const empty = state.paint.flat().filter((k) => !k).length;
+      return {
+        ok: true,
+        puzzle: { size, rects, clues, mixes, paint: state.paint.map((row) => row.slice()) },
+        empty,
+      };
+    }
+
+    function setStatus(text, kind) {
+      statusEl.textContent = text || "";
+      statusEl.className = "status" + (kind ? " " + kind : "");
+    }
+
+    function geom() {
+      const size = state.size;
+      const max = Math.min(420, window.innerWidth - 96);
+      const cell = Math.max(24, Math.floor((max - (size - 1) * state.gap) / size));
+      state.cell = cell;
+      return { cell, gap: state.gap, size };
+    }
+
+    function rectBox(R) {
+      const { cell, gap } = geom();
+      const col = COLORS[R.color];
+      return {
+        left: R.c * (cell + gap) + "px",
+        top: R.r * (cell + gap) + "px",
+        width: R.w * cell + (R.w - 1) * gap + "px",
+        height: R.h * cell + (R.h - 1) * gap + "px",
+        background: col.soft,
+        boxShadow: "inset 0 0 0 2px " + col.fill,
+      };
+    }
+
+    function apply(el, st) { Object.assign(el.style, st); }
+
+    function cellAt(x, y) {
+      const { cell, gap, size } = geom();
+      const b = boardEl.getBoundingClientRect();
+      const c = Math.floor((x - b.left) / (cell + gap));
+      const r = Math.floor((y - b.top) / (cell + gap));
+      if (r < 0 || c < 0 || r >= size || c >= size) return null;
+      return { r, c };
+    }
+
+    function normalize(a, b) {
+      const r1 = Math.min(a.r, b.r), c1 = Math.min(a.c, b.c);
+      const r2 = Math.max(a.r, b.r), c2 = Math.max(a.c, b.c);
+      return { r: r1, c: c1, h: r2 - r1 + 1, w: c2 - c1 + 1 };
+    }
+
+    function sameRect(a, b) {
+      return a.r === b.r && a.c === b.c && a.w === b.w && a.h === b.h && a.color === b.color;
+    }
+
+    function playerMask() {
+      return buildMask(state.size, state.placed);
+    }
+
+    function rectContains(R, clue) {
+      return clue.r >= R.r && clue.c >= R.c && clue.r < R.r + R.h && clue.c < R.c + R.w;
+    }
+
+    function cluesOk() {
+      const clues = state.puzzle.clues;
+      const rects = state.placed;
+      if (rects.length !== clues.length) return false;
+      const options = clues.map((clue) => {
+        const hits = [];
+        rects.forEach((R, i) => {
+          if (R.w * R.h === clue.area && rectContains(R, clue)) hits.push(i);
+        });
+        return hits;
+      });
+      if (options.some((hits) => !hits.length)) return false;
+      const used = new Array(rects.length).fill(false);
+      function assign(k) {
+        if (k === clues.length) return true;
+        for (const i of options[k]) {
+          if (used[i]) continue;
+          used[i] = true;
+          if (assign(k + 1)) return true;
+          used[i] = false;
+        }
+        return false;
+      }
+      return assign(0);
+    }
+
+    function renderMixes(mixes) {
+      mixesEl.innerHTML = "";
+      const label = document.createElement("p");
+      label.className = "mixes-label";
+      label.textContent = "모든 겹쳐서 생긴 색";
+      mixesEl.appendChild(label);
+      if (!mixes || !mixes.length) return;
+      mixes.forEach((s) => {
+        const wrap = document.createElement("div");
+        wrap.className = "mix";
+        const g = document.createElement("div");
+        g.className = "mix-grid";
+        g.style.gridTemplateColumns = "repeat(" + s.w + ", 12px)";
+        s.bits.forEach((row) => {
+          row.forEach((cell) => {
+            const i = document.createElement("i");
+            if (cell) {
+              i.className = "on";
+              i.style.background = mixFill(cell);
+            }
+            g.appendChild(i);
+          });
+        });
+        wrap.appendChild(g);
+        mixesEl.appendChild(wrap);
+      });
+    }
+
+    function renderPots() {
+      const pal = document.getElementById("pots");
+      pal.innerHTML = "";
+      if (state.mode === "draw") {
+        PAINTS.forEach((p) => {
+          const b = document.createElement("button");
+          b.className = "pot" + (state.brush === p.key && !state.erase ? " on" : "");
+          b.style.background = mixFill(p.key);
+          b.title = p.name;
+          b.type = "button";
+          b.onclick = () => {
+            state.brush = p.key;
+            state.erase = false;
+            renderPots();
+          };
+          pal.appendChild(b);
+        });
+        const er = document.createElement("button");
+        er.className = "pot erase" + (state.erase ? " on" : "");
+        er.type = "button";
+        er.textContent = "지우개";
+        er.onclick = () => {
+          state.erase = true;
+          renderPots();
+        };
+        pal.appendChild(er);
+        return;
+      }
+      COLORS.forEach((col, i) => {
+        const b = document.createElement("button");
+        b.className = "pot" + (state.color === i ? " on" : "");
+        b.style.background = col.fill;
+        b.title = col.name;
+        b.type = "button";
+        b.onclick = () => {
+          state.color = i;
+          renderPots();
+        };
+        pal.appendChild(b);
+      });
+    }
+
+    function renderBoard() {
+      const { cell, gap, size } = geom();
+      const w = size * cell + (size - 1) * gap;
+      boardEl.style.width = w + "px";
+      boardEl.style.height = w + "px";
+      gridEl.style.gridTemplateColumns = "repeat(" + size + ", " + cell + "px)";
+      gridEl.style.gridTemplateRows = "repeat(" + size + ", " + cell + "px)";
+      gridEl.style.gap = gap + "px";
+      gridEl.innerHTML = "";
+      const clueMap = new Map();
+      if (state.mode === "play" && state.puzzle) {
+        state.puzzle.clues.forEach((x) => clueMap.set(x.r + "," + x.c, x));
+      }
+      const playM = state.mode === "play" ? playerMask() : null;
+      for (let r = 0; r < size; r++) {
+        for (let c = 0; c < size; c++) {
+          const el = document.createElement("div");
+          el.className = "cell";
+          const clue = clueMap.get(r + "," + c);
+          if (clue) {
+            const n = document.createElement("div");
+            n.className = "num";
+            n.textContent = clue.area;
+            el.appendChild(n);
+          }
+          if (state.mode === "draw") {
+            const key = state.paint[r][c];
+            if (key) el.style.background = mixFill(key);
+            else el.classList.add("paper");
+          } else {
+            const set = playM[r][c];
+            if (!state.paint[r][c]) el.classList.add("paper");
+            if (set.size >= 2) el.style.background = mixFill(mixKey(set));
+          }
+          gridEl.appendChild(el);
+        }
+      }
+      layersEl.innerHTML = "";
+      const showRects = state.mode === "play"
+        ? (state.showAnswer ? state.puzzle.rects : state.placed)
+        : (state.puzzle ? state.puzzle.rects : []);
+      if (state.mode === "draw" && state.puzzle) {
+        showRects.forEach((R) => {
+          const el = document.createElement("div");
+          el.className = "rect";
+          apply(el, rectBox(R));
+          el.style.opacity = "0.35";
+          layersEl.appendChild(el);
+        });
+      } else if (state.mode === "play") {
+        showRects.forEach((R) => {
+          const el = document.createElement("div");
+          el.className = "rect";
+          apply(el, rectBox(R));
+          layersEl.appendChild(el);
+        });
+      }
+    }
+
+    function renderRectList() {
+      if (!state.puzzle) {
+        rectListEl.textContent = "";
+        return;
+      }
+      const parts = state.puzzle.rects.map((R, i) =>
+        (i + 1) + ". " + COLORS[R.color].name + " " + R.w + "×" + R.h + " (" + (R.w * R.h) + ")"
+      );
+      rectListEl.textContent = "네모 " + parts.length + "개 · " + parts.join(" · ");
+    }
+
+    function saveDraft() {
+      localStorage.setItem("overhue-editor-draft", JSON.stringify({
+        size: state.size,
+        paint: state.paint,
+      }));
+    }
+
+    function buildPuzzle(silent) {
+      const result = decompose();
+      if (!result.ok) {
+        state.puzzle = null;
+        renderMixes([]);
+        renderRectList();
+        renderBoard();
+        if (!silent) setStatus(result.reason, "bad");
+        return false;
+      }
+      state.puzzle = result.puzzle;
+      renderMixes(result.puzzle.mixes);
+      renderRectList();
+      renderBoard();
+      const warns = [];
+      if (!result.puzzle.mixes.length) warns.push("겹친 칸이 없습니다");
+      if (result.puzzle.rects.length > 16) warns.push("네모가 " + result.puzzle.rects.length + "개라 어렵습니다");
+      if (result.empty) warns.push("빈 칸 " + result.empty);
+      const msg = "네모 " + result.puzzle.rects.length + "개" + (warns.length ? " · " + warns.join(" · ") : "");
+      if (!silent) setStatus(msg, result.puzzle.rects.length > 16 ? "bad" : "ok");
+      saveDraft();
+      return true;
+    }
+
+    function enterPlay() {
+      if (!buildPuzzle(true) && !state.puzzle) {
+        setStatus("먼저 그림을 칠하세요.", "bad");
+        return;
+      }
+      if (!buildPuzzle(true)) return;
+      state.mode = "play";
+      state.placed = [];
+      state.showAnswer = false;
+      state.color = 0;
+      document.body.className = "play";
+      document.getElementById("sub").textContent = "시험: 숫자와 겹친 모양으로 그림을 다시 만드세요.";
+      document.getElementById("win").classList.remove("show");
+      renderPots();
+      renderMixes(state.puzzle.mixes);
+      renderBoard();
+      renderRectList();
+      setStatus("네모 " + state.puzzle.rects.length + "개");
+    }
+
+    function enterDraw() {
+      state.mode = "draw";
+      state.drag = null;
+      state.showAnswer = false;
+      document.body.className = "draw";
+      document.getElementById("sub").textContent = "7색으로 그림을 칠하면, 겹친 물감 네모로 나눕니다.";
+      document.getElementById("win").classList.remove("show");
+      renderPots();
+      if (state.puzzle) renderMixes(state.puzzle.mixes);
+      else renderMixes([]);
+      renderBoard();
+      renderRectList();
+      setStatus("");
+    }
+
+    function paintAt(cell) {
+      if (!cell) return;
+      const next = state.erase ? "" : state.brush;
+      if (state.paint[cell.r][cell.c] === next) return;
+      state.paint[cell.r][cell.c] = next;
+      state.puzzle = null;
+      renderBoard();
+      renderMixes([]);
+      renderRectList();
+      saveDraft();
+    }
+
+    function tryPlace(box) {
+      if (hitsPaper(box)) {
+        setStatus("빈 종이는 덮을 수 없습니다.", "bad");
+        beep(160, 0.08, "square", 0.03);
+        return;
+      }
+      if (sameColorBlocked(box, state.color, state.placed)) {
+        setStatus("같은 색은 겹칠 수 없습니다.", "bad");
+        beep(160, 0.08, "square", 0.03);
+        return;
+      }
+      const R = { ...box, color: state.color };
+      if (state.placed.some((x) => sameRect(x, R))) return;
+      state.placed.push(R);
+      beep(480, 0.06, "sine", 0.035);
+      renderBoard();
+      checkWin();
+    }
+
+    function checkWin() {
+      if (!state.puzzle) return;
+      const need = state.puzzle.clues.length - state.placed.length;
+      if (need > 0) {
+        setStatus("네모 " + need + "개 남음");
+        return;
+      }
+      if (!cluesOk()) {
+        setStatus("숫자와 네모 짝이 안 맞습니다.", "bad");
+        return;
+      }
+      if (!masksEqual(playerMask(), maskFromPaint(state.paint))) {
+        setStatus("그림 색과 다릅니다.", "bad");
+        return;
+      }
+      setStatus("맞았습니다", "ok");
+      beep(523, 0.08);
+      document.getElementById("win").classList.add("show");
+    }
+
+    function fillKey(r0, c0, h, w, key) {
+      for (let r = r0; r < r0 + h; r++) {
+        for (let c = c0; c < c0 + w; c++) {
+          const cur = keySet(state.paint[r][c]);
+          keySet(key).forEach((id) => cur.add(id));
+          state.paint[r][c] = mixKey(cur);
+        }
+      }
+    }
+
+    function loadExample(name) {
+      state.size = name === "house" ? 8 : 6;
+      document.getElementById("sizeSel").value = String(state.size);
+      state.paint = emptyGrid(state.size);
+      if (name === "overlap") {
+        fillKey(0, 0, 4, 4, "0");
+        fillKey(2, 2, 4, 4, "2");
+      } else {
+        fillKey(0, 2, 2, 4, "0");
+        fillKey(2, 1, 4, 6, "1");
+        fillKey(4, 3, 2, 2, "2");
+        fillKey(6, 0, 2, 8, "1+2");
+      }
+      state.puzzle = null;
+      renderBoard();
+      buildPuzzle(false);
+    }
+
+    const sizeSel = document.getElementById("sizeSel");
+    for (let n = 5; n <= 10; n++) {
+      const o = document.createElement("option");
+      o.value = String(n);
+      o.textContent = n + "×" + n;
+      if (n === 8) o.selected = true;
+      sizeSel.appendChild(o);
+    }
+    sizeSel.onchange = () => {
+      const n = parseInt(sizeSel.value, 10);
+      const next = emptyGrid(n);
+      for (let r = 0; r < Math.min(n, state.size); r++) {
+        for (let c = 0; c < Math.min(n, state.size); c++) next[r][c] = state.paint[r][c];
+      }
+      state.size = n;
+      state.paint = next;
+      state.puzzle = null;
+      renderBoard();
+      renderMixes([]);
+      renderRectList();
+      saveDraft();
+    };
+
+    boardEl.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      const cell = cellAt(e.clientX, e.clientY);
+      if (!cell) return;
+      boardEl.setPointerCapture(e.pointerId);
+      if (state.mode === "draw") {
+        state.drag = { kind: "paint", last: cell };
+        paintAt(cell);
+        return;
+      }
+      if (state.placed.some((R) =>
+        cell.r >= R.r && cell.r < R.r + R.h && cell.c >= R.c && cell.c < R.c + R.w
+      )) {
+        const hit = [...state.placed].reverse().find((R) =>
+          cell.r >= R.r && cell.r < R.r + R.h && cell.c >= R.c && cell.c < R.c + R.w
+        );
+        state.placed = state.placed.filter((R) => R !== hit);
+        renderBoard();
+        checkWin();
+        return;
+      }
+      state.drag = { kind: "rect", start: cell, end: cell };
+    });
+
+    boardEl.addEventListener("pointermove", (e) => {
+      if (!state.drag) return;
+      const cell = cellAt(e.clientX, e.clientY);
+      if (state.drag.kind === "paint") {
+        if (cell) paintAt(cell);
+        return;
+      }
+      if (!cell) return;
+      state.drag.end = cell;
+      const box = normalize(state.drag.start, state.drag.end);
+      previewEl.innerHTML = "";
+      const el = document.createElement("div");
+      el.className = "rect" + ((hitsPaper(box) || sameColorBlocked(box, state.color, state.placed)) ? " bad" : "");
+      apply(el, rectBox({ ...box, color: state.color }));
+      const lab = document.createElement("div");
+      lab.className = "area";
+      lab.textContent = String(box.w * box.h);
+      el.appendChild(lab);
+      previewEl.appendChild(el);
+    });
+
+    function endDrag() {
+      if (!state.drag) return;
+      if (state.drag.kind === "rect") {
+        const box = normalize(state.drag.start, state.drag.end);
+        previewEl.innerHTML = "";
+        tryPlace(box);
+      }
+      state.drag = null;
+    }
+    boardEl.addEventListener("pointerup", endDrag);
+    boardEl.addEventListener("pointercancel", endDrag);
+
+    document.getElementById("clear").onclick = () => {
+      state.paint = emptyGrid(state.size);
+      state.puzzle = null;
+      renderBoard();
+      renderMixes([]);
+      renderRectList();
+      setStatus("비웠습니다");
+      saveDraft();
+    };
+    document.getElementById("build").onclick = () => buildPuzzle(false);
+    document.getElementById("playBtn").onclick = enterPlay;
+    document.getElementById("copyJson").onclick = () => {
+      if (!buildPuzzle(true)) {
+        setStatus("나눌 그림이 없습니다.", "bad");
+        return;
+      }
+      const text = JSON.stringify(state.puzzle, null, 2);
+      navigator.clipboard.writeText(text).then(
+        () => setStatus("JSON을 복사했습니다.", "ok"),
+        () => setStatus("복사에 실패했습니다.", "bad")
+      );
+    };
+    document.getElementById("exOverlap").onclick = () => loadExample("overlap");
+    document.getElementById("exHouse").onclick = () => loadExample("house");
+    document.getElementById("undo").onclick = () => {
+      state.placed.pop();
+      renderBoard();
+      checkWin();
+    };
+    document.getElementById("resetPlay").onclick = () => {
+      state.placed = [];
+      state.showAnswer = false;
+      document.getElementById("win").classList.remove("show");
+      renderBoard();
+      setStatus("");
+    };
+    document.getElementById("showAns").onclick = () => {
+      state.showAnswer = !state.showAnswer;
+      renderBoard();
+      setStatus(state.showAnswer ? "정답 네모를 켜 두었습니다." : "");
+    };
+    document.getElementById("backDraw").onclick = enterDraw;
+    document.getElementById("winBack").onclick = enterDraw;
+
+    window.addEventListener("keydown", (e) => {
+      if (state.mode === "play") {
+        if (e.key === "1") state.color = 0;
+        if (e.key === "2") state.color = 1;
+        if (e.key === "3") state.color = 2;
+        if (e.key === "z" || e.key === "Z") state.placed.pop();
+        renderPots();
+        renderBoard();
+      }
+    });
+    window.addEventListener("resize", () => renderBoard());
+
+    try {
+      const raw = JSON.parse(localStorage.getItem("overhue-editor-draft") || "null");
+      if (raw && raw.paint && raw.size) {
+        state.size = raw.size;
+        state.paint = raw.paint;
+        sizeSel.value = String(raw.size);
+      }
+    } catch (e) {}
+    if (!state.paint.length) state.paint = emptyGrid(state.size);
+
+    renderPots();
+    renderBoard();
+  </script>
+</body>
+</html>
