@@ -1,0 +1,17 @@
+{
+  "name": "OVERHUE",
+  "short_name": "OVERHUE",
+  "description": "겹친 색을 스케치북에 맞추는 수채 퍼즐",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#ebe0d2",
+  "theme_color": "#ebe0d2",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
