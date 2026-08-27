@@ -1,0 +1,15 @@
+{
+  "name": "overhue",
+  "private": true,
+  "version": "1.0.0",
+  "description": "OVERHUE Android wrapper",
+  "scripts": {
+    "www": "node scripts/sync-www.js",
+    "sync:android": "npm run www && npx cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/cli": "^8.5.0",
+    "@capacitor/core": "^8.5.0"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "appId": "com.hanhyong.overhue",
+  "appName": "OVERHUE",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": true
+  }
+}

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">OVERHUE</string>
+    <string name="title_activity_main">OVERHUE</string>
+    <string name="package_name">com.hanhyong.overhue</string>
+    <string name="custom_url_scheme">com.hanhyong.overhue</string>
+</resources>

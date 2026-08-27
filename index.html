@@ -1411,8 +1411,16 @@
       return window.OVERHUE_ADS || {};
     }
     function adsConfigured() {
+      if (isNativeApp()) return false;
       const id = adsConfig().adsenseClient || "";
       return id.indexOf("ca-pub-") === 0;
+    }
+    function isNativeApp() {
+      try {
+        return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+      } catch (e) {
+        return false;
+      }
     }
     function loadAdsense() {
       if (!adsConfigured() || adsenseTag) return;
@@ -1554,6 +1562,9 @@
         }
       });
       syncBgm();
+      if (isNativeApp() && (!history.state || history.state.overhue !== "play")) {
+        history.pushState({ overhue: "play" }, "");
+      }
     }
     function refreshHome() {
       const max = loadProgress();
@@ -3213,6 +3224,10 @@
     }
     applyLaunchHash();
     window.addEventListener("hashchange", applyLaunchHash);
+    window.addEventListener("popstate", () => {
+      if (!document.getElementById("play").classList.contains("show")) return;
+      showHome();
+    });
   </script>
 </body>
 </html>
