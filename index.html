@@ -2194,20 +2194,24 @@
     function ensureWashGL(w, h) {
       if (typeof brush === "undefined") return null;
       h = h == null ? w : h;
-      if (washGL && washGL._w === w && washGL._h === h) {
+      w = Math.max(2, Math.ceil(w));
+      h = Math.max(2, Math.ceil(h));
+      if (washGL && washGL._w >= w && washGL._h >= h) {
         brush.load(washGL);
         return washGL;
       }
+      const nw = Math.max(w, washGL ? washGL._w : w);
+      const nh = Math.max(h, washGL ? washGL._h : h);
       if (washGL) washGL.remove();
       try {
-        washGL = brush.createCanvas(w, h, {
+        washGL = brush.createCanvas(nw, nh, {
           parent: document.getElementById("washGlHost"),
           pixelDensity: 1,
           id: "wash-gl",
         });
-        washGL._w = w;
-        washGL._h = h;
-        washGL._board = w;
+        washGL._w = nw;
+        washGL._h = nh;
+        washGL._board = nw;
         return washGL;
       } catch (err) {
         washGL = null;
@@ -2216,22 +2220,75 @@
       }
     }
 
-    function paintOneWash(gw, gh, box, color, seed) {
-      const gl = ensureWashGL(gw, gh);
+    function darkenHex(hex, amt) {
+      const n = parseInt((hex || "#444444").replace("#", ""), 16);
+      const r = Math.max(0, Math.round(((n >> 16) & 255) * amt));
+      const g = Math.max(0, Math.round(((n >> 8) & 255) * amt));
+      const b = Math.max(0, Math.round((n & 255) * amt));
+      return "#" + [r, g, b].map((v) => ("0" + v.toString(16)).slice(-2)).join("");
+    }
+
+    function crayonEdge(ctx, x1, y1, x2, y2, rng) {
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      const len = Math.hypot(dx, dy) || 1;
+      const nx = -dy / len;
+      const ny = dx / len;
+      const steps = Math.max(2, Math.round(len / 9));
+      for (let i = 1; i <= steps; i++) {
+        const t = i / steps;
+        const wob = (rng() - 0.5) * 1.05;
+        ctx.lineTo(x1 + dx * t + nx * wob, y1 + dy * t + ny * wob);
+      }
+    }
+
+    function strokeCrayonRect(ctx, x, y, w, h, hex, seed) {
+      const rng = mulberry32((seed ^ 0x9e3779b9) >>> 0);
+      const ink = darkenHex(hex, 0.42);
+      const x0 = x + 0.8;
+      const y0 = y + 0.8;
+      const x1 = x + w - 0.8;
+      const y1 = y + h - 0.8;
+      ctx.save();
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+      ctx.strokeStyle = ink;
+      ctx.globalAlpha = 0.55;
+      ctx.lineWidth = 1.15;
+      ctx.strokeRect(x0, y0, Math.max(1, x1 - x0), Math.max(1, y1 - y0));
+      for (let p = 0; p < 3; p++) {
+        ctx.lineWidth = 1.4 + p * 0.5;
+        ctx.globalAlpha = 0.32 + p * 0.2;
+        const o = (p - 1) * 0.22;
+        ctx.beginPath();
+        ctx.moveTo(x0 + o, y0 + o);
+        crayonEdge(ctx, x0 + o, y0 + o, x1 - o, y0 + o, rng);
+        crayonEdge(ctx, x1 - o, y0 + o, x1 - o, y1 - o, rng);
+        crayonEdge(ctx, x1 - o, y1 - o, x0 + o, y1 - o, rng);
+        crayonEdge(ctx, x0 + o, y1 - o, x0 + o, y0 + o, rng);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function paintOneWash(w, h, color, seed) {
+      w = Math.max(2, Math.ceil(w));
+      h = Math.max(2, Math.ceil(h));
+      const gl = ensureWashGL(w, h);
       if (!gl) return null;
       brush.load(gl);
       brush.clear();
       brush.push();
-      brush.translate(-gw / 2, -gh / 2);
+      brush.translate(-gl._w / 2, -gl._h / 2);
       brush.noStroke();
       brush.noHatch();
       brush.noField();
       brush.noWash();
       brush.seed(seed);
       brush.fill(color, 155);
-      brush.fillBleed(0.04, "out");
+      brush.fillBleed(0, "out");
       brush.fillTexture(0.42, 0.22, false);
-      brush.rect(box.x, box.y, box.w, box.h, "corner");
+      brush.rect(0, 0, w, h, "corner");
       brush.pop();
       brush.render();
       return gl;
@@ -2301,68 +2358,68 @@
       ctx.putImageData(img, 0, 0);
     }
 
-    function makeStamp(gw, gh, box, color, seed, pad, plugHoles) {
-      const gl = paintOneWash(gw, gh, box, color, seed);
+    function makeStamp(box, color, seed, plugHoles) {
+      const w = Math.max(2, Math.ceil(box.w));
+      const h = Math.max(2, Math.ceil(box.h));
+      const gl = paintOneWash(w, h, color, seed);
       if (!gl) return null;
-      const sx = Math.max(0, Math.floor(box.x - pad));
-      const sy = Math.max(0, Math.floor(box.y - pad));
-      const sw = Math.max(1, Math.min(gw - sx, Math.ceil(box.w + pad * 2)));
-      const sh = Math.max(1, Math.min(gh - sy, Math.ceil(box.h + pad * 2)));
       const stamp = document.createElement("canvas");
-      stamp.width = sw;
-      stamp.height = sh;
+      stamp.width = w;
+      stamp.height = h;
       const sctx = stamp.getContext("2d");
-      sctx.drawImage(gl, sx, sy, sw, sh, 0, 0, sw, sh);
+      sctx.drawImage(gl, 0, 0, w, h, 0, 0, w, h);
       liftPigment(stamp);
       flattenMacro(stamp, color);
+      sctx.save();
+      sctx.globalCompositeOperation = "destination-in";
+      sctx.fillStyle = "#000";
+      sctx.fillRect(0, 0, w, h);
+      sctx.restore();
       if (plugHoles) {
         sctx.globalCompositeOperation = "destination-over";
         sctx.fillStyle = color;
         sctx.globalAlpha = 198 / 255;
-        sctx.fillRect(box.x - sx, box.y - sy, box.w, box.h);
+        sctx.fillRect(0, 0, w, h);
         sctx.globalAlpha = 1;
         sctx.globalCompositeOperation = "source-over";
       }
-      stamp._dx = sx;
-      stamp._dy = sy;
+      strokeCrayonRect(sctx, 0, 0, w, h, color, seed);
       return stamp;
     }
 
-    function blitWash(host, area, gw, gh, box, color, seed, pad, glReady, cacheTag, plugHoles) {
-      const layer = document.createElement("canvas");
-      layer.className = "washes";
-      layer.setAttribute("aria-hidden", "true");
-      layer.width = gw;
-      layer.height = gh;
-      const ctx = layer.getContext("2d");
+    function stampWash(ctx, box, color, seed, glReady, cacheTag, plugHoles) {
       if (glReady) {
-        const key = [box.x, box.y, box.w, box.h, color, cacheTag, gw, gh].join(",");
+        const key = [Math.round(box.w), Math.round(box.h), color, seed, cacheTag, plugHoles ? 1 : 0].join(",");
         let stamp = stampCache.get(key);
         if (!stamp) {
-          stamp = makeStamp(gw, gh, box, color, seed, pad, plugHoles);
+          stamp = makeStamp(box, color, seed, plugHoles);
           if (stamp) {
             stampCache.set(key, stamp);
             if (stampCache.size > 80) stampCache.clear();
           }
         }
-        if (stamp) ctx.drawImage(stamp, stamp._dx, stamp._dy);
-      } else {
-        ctx.fillStyle = color;
-        ctx.globalAlpha = 0.72;
-        ctx.fillRect(box.x, box.y, box.w, box.h);
-        ctx.globalAlpha = 1;
+        if (stamp) ctx.drawImage(stamp, box.x, box.y);
+        return;
       }
-      if (area) host.insertBefore(layer, area);
-      else host.appendChild(layer);
+      ctx.fillStyle = color;
+      ctx.globalAlpha = 0.72;
+      ctx.fillRect(box.x, box.y, box.w, box.h);
+      ctx.globalAlpha = 1;
+      strokeCrayonRect(ctx, box.x, box.y, box.w, box.h, color, seed);
     }
 
     function paintWashes(host, rects, opt) {
       opt = opt || {};
       host.querySelectorAll("canvas.washes").forEach(function (el) { el.remove(); });
       const { cell, gap, inset, boardW, boardH, rows, cols } = geom();
-      const pad = Math.max(1, gap * 0.85);
       const area = host.querySelector(".area");
       const glReady = ensureWashGL(boardW, boardH);
+      const layer = document.createElement("canvas");
+      layer.className = "washes";
+      layer.setAttribute("aria-hidden", "true");
+      layer.width = boardW;
+      layer.height = boardH;
+      const ctx = layer.getContext("2d");
       const world = (opt.others || []).concat(rects);
       const shapes = colorShapes(buildMask(rows, cols, world));
       shapes.sort(function (a, b) {
@@ -2376,9 +2433,11 @@
           );
           const color = opt.bad && !s.key.includes("+") ? "#9a9a9a" : mixFill(s.key);
           const seed = (s.r * 7919 + s.c * 104729 + R.w * 13 + R.h * 29 + idx * 17 + s.area * 97) >>> 0;
-          blitWash(host, area, boardW, boardH, box, color, seed, pad, glReady, s.key, s.key.includes("+"));
+          stampWash(ctx, box, color, seed, glReady, s.key, s.key.includes("+"));
         });
       });
+      if (area) host.insertBefore(layer, area);
+      else host.appendChild(layer);
     }
 
     function showDragPreview() {
@@ -2665,7 +2724,6 @@
       const cell = 24;
       const gap = 0;
       const inset = 6;
-      const pad = 1;
       state.puzzle.mixes.forEach((s) => {
         const innerW = s.w * cell;
         const innerH = s.h * cell;
@@ -2699,13 +2757,14 @@
           const color = mixFill(R.key);
           const seed = (s.area * 97 + idx * 13 + R.r * 7919 + R.c * 104729) >>> 0;
           if (glReady) {
-            const stamp = makeStamp(boardW, boardH, box, color, seed, pad, true);
-            if (stamp) ctx.drawImage(stamp, stamp._dx, stamp._dy);
+            const stamp = makeStamp(box, color, seed, true);
+            if (stamp) ctx.drawImage(stamp, box.x, box.y);
           } else {
             ctx.fillStyle = color;
             ctx.globalAlpha = 0.72;
             ctx.fillRect(box.x, box.y, box.w, box.h);
             ctx.globalAlpha = 1;
+            strokeCrayonRect(ctx, box.x, box.y, box.w, box.h, color, seed);
           }
         });
         wrap.appendChild(canvas);
