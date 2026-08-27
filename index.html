@@ -163,12 +163,56 @@
     .home-daily.done {
       background: #eaf6ee;
     }
-    .home-foot {
+    .home-foot a { color: inherit; }
+    .ad-slot {
+      min-height: 72px;
+      border-radius: 14px;
+      background: rgba(255,253,248,.7);
+      border: 1px dashed rgba(42,36,28,.16);
+      display: grid;
+      place-items: center;
       text-align: center;
+      padding: 10px 12px;
       color: var(--muted);
       font-size: 12px;
-      margin: 8px 0 0;
+      line-height: 1.4;
     }
+    .ad-slot.filled { border-style: solid; padding: 0; min-height: 90px; }
+    .ad-slot .kicker {
+      display: block;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      margin-bottom: 4px;
+      color: #8a6a00;
+    }
+    .home-ad { margin-top: 4px; z-index: 1; }
+    .win-ad { margin: 0 0 10px; }
+    .ad-gate {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(42,36,28,.42);
+      place-items: center;
+      z-index: 30;
+      padding: 20px;
+    }
+    .ad-gate.show { display: grid; }
+    .ad-gate-card {
+      background: #fffdf8;
+      border-radius: 20px;
+      padding: 20px 18px 16px;
+      width: min(360px, 100%);
+      box-shadow: var(--shadow);
+      text-align: center;
+    }
+    .ad-gate-card h2 {
+      font-family: Fraunces, serif;
+      margin: 0 0 8px;
+      font-size: 22px;
+    }
+    .ad-gate-card .ad-slot { margin: 8px 0 12px; min-height: 120px; }
+    .ad-count { font-weight: 700; color: var(--muted); margin: 0 0 10px; }
     #homeLevels { width: 100%; }
     .how-card .tool.primary,
     .settings-card .tool.primary { width: 100%; }
@@ -888,7 +932,10 @@
       <em id="dailyStatus">매일 다른 한 장</em>
     </button>
     <button class="tool" id="homeLevels" type="button">장 고르기</button>
-    <p class="home-foot">종이 위에 물감을 겹쳐 칠하는 색 퍼즐</p>
+    <div class="ad-slot home-ad" id="adHome" data-ad="home">
+      <span><span class="kicker">광고</span>스케치북은 광고로 유지됩니다</span>
+    </div>
+    <p class="home-foot">종이 위에 물감을 겹쳐 칠하는 색 퍼즐 · <a href="privacy.html">개인정보</a></p>
   </div>
 
   <div class="app" id="play">
@@ -951,11 +998,22 @@
         <span>소리</span>
         <button class="toggle on" id="soundToggle" type="button">켜짐</button>
       </div>
-      <p class="home-foot" style="text-align:left;margin:12px 0 14px;">효과음 파일을 넣으면 붓·종이 소리가 납니다. 없으면 짧은 톤으로 대체합니다.</p>
+      <p class="home-foot" style="text-align:left;margin:12px 0 14px;">효과음 파일을 넣으면 붓·종이 소리가 납니다. 없으면 짧은 톤으로 대체합니다. 광고는 홈·클리어·추가 힌트에만 뜹니다. <a href="privacy.html">개인정보 안내</a></p>
       <button class="tool primary" id="settingsClose" type="button">닫기</button>
     </div>
   </div>
 
+  <div class="ad-gate" id="adGate">
+    <div class="ad-gate-card">
+      <p class="kicker" style="color:#8a6a00;font-size:11px;font-weight:700;letter-spacing:.04em;">광고</p>
+      <h2>힌트를 하나 더</h2>
+      <div class="ad-slot" id="adGateSlot">
+        <span>짧은 광고 뒤에 네모 하나를 알려 드립니다</span>
+      </div>
+      <p class="ad-count" id="adGateCount">5</p>
+      <button class="tool primary" id="adGateGo" type="button" disabled>잠시만요</button>
+    </div>
+  </div>
   <div class="wash-gl-host" id="washGlHost" aria-hidden="true"></div>
   <svg class="svg-fx" aria-hidden="true" focusable="false">
     <filter id="watercolor0" x="-18%" y="-18%" width="136%" height="136%" color-interpolation-filters="sRGB">
@@ -993,6 +1051,9 @@
       <p id="winText">다음은 더 큰 스케치북입니다.</p>
       <p class="win-progress" id="winProgress">1 / 120 장</p>
       <div class="win-stats" id="winStats"></div>
+      <div class="ad-slot win-ad" id="adWin" data-ad="win">
+        <span><span class="kicker">광고</span>다음 장 전에 잠깐</span>
+      </div>
       <div class="win-actions">
         <button class="tool primary" id="next" type="button">다음 장으로</button>
         <button class="tool ghost" id="shareWin" type="button">기록 공유</button>
@@ -1003,6 +1064,7 @@
   </div>
 
   <!-- p5.brush 2.2.1 standalone, MIT. Fill only — no p5.js. -->
+  <script src="ads-config.js"></script>
   <script src="vendor/p5.brush.js"></script>
   <script>
     const COLORS = [
@@ -1242,6 +1304,7 @@
       cell: 52,
       gap: 0,
       hintUsed: false,
+      adHintUsed: false,
       locked: false,
       cleared: false,
       timerStart: 0,
@@ -1343,6 +1406,78 @@
       const mixes = (puzzle.mixes || []).length;
       return Math.round(cells * 2200 + n * 7500 + mixes * 5500 + 10000);
     }
+    let adsenseTag = false;
+    function adsConfig() {
+      return window.OVERHUE_ADS || {};
+    }
+    function adsConfigured() {
+      const id = adsConfig().adsenseClient || "";
+      return id.indexOf("ca-pub-") === 0;
+    }
+    function loadAdsense() {
+      if (!adsConfigured() || adsenseTag) return;
+      adsenseTag = true;
+      const s = document.createElement("script");
+      s.async = true;
+      s.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=" + encodeURIComponent(adsConfig().adsenseClient);
+      s.crossOrigin = "anonymous";
+      document.head.appendChild(s);
+    }
+    function fillAdSlot(el, slotKey) {
+      if (!el) return;
+      const cfg = adsConfig();
+      const slot = cfg[slotKey];
+      if (!adsConfigured() || !slot || el.dataset.filled) return;
+      el.dataset.filled = "1";
+      el.classList.add("filled");
+      el.innerHTML = "";
+      const ins = document.createElement("ins");
+      ins.className = "adsbygoogle";
+      ins.style.display = "block";
+      ins.setAttribute("data-ad-client", cfg.adsenseClient);
+      ins.setAttribute("data-ad-slot", slot);
+      ins.setAttribute("data-ad-format", "auto");
+      ins.setAttribute("data-full-width-responsive", "true");
+      el.appendChild(ins);
+      loadAdsense();
+      try {
+        (window.adsbygoogle = window.adsbygoogle || []).push({});
+      } catch (e) {}
+    }
+    function showAdsForSurface() {
+      fillAdSlot(document.getElementById("adHome"), "slotHome");
+      fillAdSlot(document.getElementById("adWin"), "slotWin");
+    }
+    let adGateTimer = 0;
+    let adGateDone = null;
+    function closeAdGate() {
+      document.getElementById("adGate").classList.remove("show");
+      if (adGateTimer) clearInterval(adGateTimer);
+      adGateTimer = 0;
+    }
+    function openRewardedAd(done) {
+      adGateDone = done;
+      const go = document.getElementById("adGateGo");
+      const count = document.getElementById("adGateCount");
+      go.disabled = true;
+      go.textContent = "잠시만요";
+      fillAdSlot(document.getElementById("adGateSlot"), "slotWin");
+      let n = 5;
+      count.textContent = String(n);
+      document.getElementById("adGate").classList.add("show");
+      adGateTimer = setInterval(() => {
+        n -= 1;
+        if (n > 0) {
+          count.textContent = String(n);
+          return;
+        }
+        clearInterval(adGateTimer);
+        adGateTimer = 0;
+        count.textContent = "";
+        go.disabled = false;
+        go.textContent = "힌트 받기";
+      }, 1000);
+    }
     function playSfx(name, fallback) {
       if (!soundEnabled()) return;
       const a = sfx[name];
@@ -1406,6 +1541,7 @@
       stopTimerTick();
       refreshHome();
       syncBgm();
+      showAdsForSurface();
     }
     function showPlay() {
       document.getElementById("home").classList.remove("show");
@@ -1556,6 +1692,7 @@
       state.drag = null;
       state.color = 0;
       state.hintUsed = false;
+      state.adHintUsed = false;
       state.cleared = false;
       state.timerStart = 0;
       state.clearMs = 0;
@@ -2290,7 +2427,10 @@
       const hintBtn = document.getElementById("hintBtn");
       const undoBtn = document.getElementById("undo");
       if (undoBtn) undoBtn.disabled = state.locked;
-      if (hintBtn) hintBtn.disabled = state.locked || state.hintUsed || state.cleared;
+      if (hintBtn) {
+        hintBtn.disabled = state.locked || state.cleared || (state.hintUsed && state.adHintUsed);
+        hintBtn.textContent = state.hintUsed ? "광고 힌트" : "힌트";
+      }
     }
 
     function apply(el, st) {
@@ -2468,6 +2608,7 @@
       renderSheet();
       refreshHome();
       paintTimer();
+      showAdsForSurface();
       setTimeout(() => document.getElementById("win").classList.add("show"), 160);
     }
 
@@ -2789,13 +2930,7 @@
       applyPuzzle(puzzle, { mode: "daily", dailyKey: key });
     }
 
-    function useHint() {
-      if (!state.puzzle || state.locked || state.cleared) return;
-      markTimer();
-      if (state.hintUsed) {
-        setStatus("이 판 힌트는 이미 썼습니다.", "bad");
-        return;
-      }
+    function placeHintPiece() {
       const cand = state.puzzle.rects
         .map((R) => ({ r: R.r, c: R.c, w: R.w, h: R.h, color: R.color }))
         .filter((R) => !state.placed.some((x) => sameRect(x, R)))
@@ -2803,7 +2938,6 @@
       for (const R of cand) {
         if (sameColorBlocked(R, R.color, state.placed)) continue;
         state.placed.push(R);
-        state.hintUsed = true;
         state.color = R.color;
         state.erase = false;
         renderPalette();
@@ -2812,9 +2946,29 @@
         setStatus("");
         playSfx("hint", () => beep(620, 0.07));
         checkWin();
-        return;
+        return true;
       }
       setStatus("힌트를 놓으려면 겹치는 같은 색을 먼저 지우세요.", "bad");
+      return false;
+    }
+    function useHint() {
+      if (!state.puzzle || state.locked || state.cleared) return;
+      markTimer();
+      if (state.hintUsed && state.adHintUsed) {
+        setStatus("이 판 힌트는 다 썼습니다.", "bad");
+        return;
+      }
+      if (state.hintUsed) {
+        openRewardedAd(() => {
+          if (placeHintPiece()) state.adHintUsed = true;
+          updateToolButtons();
+        });
+        return;
+      }
+      if (placeHintPiece()) {
+        state.hintUsed = true;
+        updateToolButtons();
+      }
     }
     function tryPlace(box) {
       if (state.locked || state.cleared) return;
@@ -2997,6 +3151,12 @@
       refreshHome();
       syncBgm();
     };
+    document.getElementById("adGateGo").onclick = () => {
+      const fn = adGateDone;
+      adGateDone = null;
+      closeAdGate();
+      if (fn) fn();
+    };
     document.getElementById("devUnlock").onclick = unlockAll;
     let titleTaps = [];
     document.getElementById("homeTitle").addEventListener("click", () => {
@@ -3040,6 +3200,19 @@
 
     loadSfxFiles();
     refreshHome();
+    showAdsForSurface();
+    function applyLaunchHash() {
+      const h = (location.hash || "").replace("#", "");
+      if (h === "daily") {
+        loadDaily();
+        showPlay();
+      } else if (h === "play") {
+        loadStage(Math.min(loadProgress(), STAGE_N - 1));
+        showPlay();
+      }
+    }
+    applyLaunchHash();
+    window.addEventListener("hashchange", applyLaunchHash);
   </script>
 </body>
 </html>
