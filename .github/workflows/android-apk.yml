@@ -18,6 +18,9 @@ jobs:
           distribution: temurin
           java-version: "21"
       - uses: android-actions/setup-android@v3
+        with:
+          # The legacy SDK "tools" package is gone, and this action still installs it by default.
+          packages: platform-tools
       - run: npm ci
       - run: npm run www
       - run: npx cap sync android
