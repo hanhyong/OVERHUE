@@ -17,7 +17,7 @@
       place-items: center;
       padding: 24px 16px;
       color: #2a241c;
-      font-family: "IBM Plex Sans KR", sans-serif;
+      font-family: "IBM Plex Sans KR", "Hiragino Sans", "PingFang SC", "Microsoft YaHei", "Yu Gothic", sans-serif;
       background:
         radial-gradient(720px 440px at 50% -12%, #fffaf3, transparent 58%),
         linear-gradient(180deg, #f4ebe0 0%, #ebe0d2 100%);
@@ -55,26 +55,148 @@
 <body>
   <main>
     <h1>OVERHUE</h1>
-    <p class="tag">종이 위에 물감을 겹쳐 칠하는 색 퍼즐</p>
+    <p class="tag" id="tag">종이 위에 물감을 겹쳐 칠하는 색 퍼즐</p>
     <p class="status" id="status"></p>
     <div class="stores">
       <a class="store" id="ios" href="https://apps.apple.com/app/overhue/id6817478231">
-        <span>다운로드</span>
+        <span class="dl">다운로드</span>
         <strong>App Store</strong>
       </a>
       <a class="store" id="android" href="https://play.google.com/store/apps/details?id=com.overhue.feel">
-        <span>다운로드</span>
+        <span class="dl">다운로드</span>
         <strong>Google Play</strong>
       </a>
     </div>
   </main>
   <script>
-    const APP_STORE_URL = "https://apps.apple.com/app/overhue/id6817478231";
-    const PLAY_URL = "https://play.google.com/store/apps/details?id=com.overhue.feel";
+    const COPY = {
+      ko: {
+        htmlLang: "ko",
+        title: "OVERHUE 다운로드",
+        description: "OVERHUE를 App Store 또는 Google Play에서 받으세요.",
+        tag: "종이 위에 물감을 겹쳐 칠하는 색 퍼즐",
+        download: "다운로드",
+        opening: "{store}로 이동하고 있어요",
+      },
+      en: {
+        htmlLang: "en",
+        title: "Download OVERHUE",
+        description: "Get OVERHUE on the App Store or Google Play.",
+        tag: "A color puzzle of overlapping paint on paper",
+        download: "Download",
+        opening: "Opening the {store}",
+      },
+      ja: {
+        htmlLang: "ja",
+        title: "OVERHUE をダウンロード",
+        description: "App Store または Google Play で OVERHUE を入手できます。",
+        tag: "紙の上に絵の具を重ねて塗る色パズル",
+        download: "ダウンロード",
+        opening: "{store}を開いています",
+      },
+      "zh-CN": {
+        htmlLang: "zh-CN",
+        title: "下载 OVERHUE",
+        description: "在 App Store 或 Google Play 获取 OVERHUE。",
+        tag: "在纸上叠着颜料涂的色谜题",
+        download: "下载",
+        opening: "正在打开 {store}",
+      },
+      "zh-TW": {
+        htmlLang: "zh-TW",
+        title: "下載 OVERHUE",
+        description: "在 App Store 或 Google Play 取得 OVERHUE。",
+        tag: "在紙上疊著顏料塗的色謎題",
+        download: "下載",
+        opening: "正在打開 {store}",
+      },
+      es: {
+        htmlLang: "es",
+        title: "Descargar OVERHUE",
+        description: "Consigue OVERHUE en App Store o Google Play.",
+        tag: "Un puzzle de color pintando a capas sobre papel",
+        download: "Descargar",
+        opening: "Abriendo {store}",
+      },
+      "pt-BR": {
+        htmlLang: "pt-BR",
+        title: "Baixar OVERHUE",
+        description: "Baixe OVERHUE na App Store ou no Google Play.",
+        tag: "Um puzzle de cor pintando em camadas no papel",
+        download: "Baixar",
+        opening: "Abrindo {store}",
+      },
+    };
+    const SPANISH = new Set(["ES", "MX", "AR", "CO", "CL", "PE", "VE", "EC", "GT", "CU", "BO", "DO", "HN", "PY", "SV", "NI", "CR", "PA", "UY", "PR"]);
     const params = new URLSearchParams(location.search);
-    const forced = params.get("os");
+
+    function country() {
+      const query = (params.get("cc") || "").toUpperCase();
+      if (/^[A-Z]{2}$/.test(query)) return query;
+      const saved = document.cookie.match(/(?:^|; )oh_cc=([A-Za-z]{2})/);
+      if (saved) return saved[1].toUpperCase();
+      const region = (navigator.language || "").split("-")[1];
+      if (region && /^[A-Za-z]{2}$/.test(region)) return region.toUpperCase();
+      return "";
+    }
+
+    function languageFromTag(tag) {
+      const value = (tag || "").toLowerCase();
+      if (value.startsWith("ko")) return "ko";
+      if (value.startsWith("ja")) return "ja";
+      if (value.startsWith("zh")) {
+        if (value.includes("tw") || value.includes("hk") || value.includes("hant")) return "zh-TW";
+        return "zh-CN";
+      }
+      if (value.startsWith("es")) return "es";
+      if (value.startsWith("pt")) return "pt-BR";
+      return "en";
+    }
+
+    function languageFor(code) {
+      const query = params.get("lang");
+      if (query && COPY[query]) return query;
+      if (code === "KR") return "ko";
+      if (code === "JP") return "ja";
+      if (code === "CN") return "zh-CN";
+      if (code === "TW" || code === "HK" || code === "MO") return "zh-TW";
+      if (SPANISH.has(code)) return "es";
+      if (code === "BR" || code === "PT") return "pt-BR";
+      if (code) return "en";
+      return languageFromTag(navigator.language);
+    }
+
+    function appleUrl(code) {
+      if (!/^[A-Z]{2}$/.test(code)) return "https://apps.apple.com/app/overhue/id6817478231";
+      const store = code === "GB" ? "uk" : code.toLowerCase();
+      return "https://apps.apple.com/" + store + "/app/overhue/id6817478231";
+    }
+
+    function playUrl(code, lang) {
+      const hl = COPY[lang] ? COPY[lang].htmlLang : "en";
+      const query = new URLSearchParams({ id: "com.overhue.feel", hl: hl });
+      if (/^[A-Z]{2}$/.test(code)) query.set("gl", code);
+      return "https://play.google.com/store/apps/details?" + query.toString();
+    }
+
+    const where = country();
+    const lang = languageFor(where);
+    const copy = COPY[lang];
+    const iosUrl = appleUrl(where);
+    const androidUrl = playUrl(where, lang);
+    document.documentElement.lang = copy.htmlLang;
+    document.title = copy.title;
+    const description = document.querySelector('meta[name="description"]');
+    if (description) description.setAttribute("content", copy.description);
+    document.getElementById("tag").textContent = copy.tag;
+    document.querySelectorAll(".dl").forEach(function (node) {
+      node.textContent = copy.download;
+    });
+    document.getElementById("ios").href = iosUrl;
+    document.getElementById("android").href = androidUrl;
 
     function device() {
+      const forced = params.get("os");
       if (forced === "ios" || forced === "android") return forced;
       const ua = navigator.userAgent || "";
       const ipad = navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
@@ -85,10 +207,9 @@
 
     const os = device();
     if (os === "ios" || os === "android") {
-      const url = os === "ios" ? APP_STORE_URL : PLAY_URL;
-      document.getElementById("status").textContent =
-        (os === "ios" ? "App Store" : "Google Play") + "로 이동하고 있어요";
-      if (!params.has("stay")) location.replace(url);
+      const storeName = os === "ios" ? "App Store" : "Google Play";
+      document.getElementById("status").textContent = copy.opening.replace("{store}", storeName);
+      if (!params.has("stay")) location.replace(os === "ios" ? iosUrl : androidUrl);
     }
   </script>
 </body>
