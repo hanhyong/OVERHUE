@@ -12,8 +12,8 @@ function copy(src, to) {
 
 fs.rmSync(dest, { recursive: true, force: true });
 fs.mkdirSync(dest, { recursive: true });
+copy("native/index.html", "index.html");
 [
-  "index.html",
   "ads-config.js",
   "privacy.html",
   "favicon.svg",
